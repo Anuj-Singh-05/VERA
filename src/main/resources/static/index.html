@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>VERA - Agent Assurance Dashboard</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+<style>
+  body { font-family: system-ui, sans-serif; margin: 0; background: #f4f6f9; color: #1c2430; }
+  header { background: #12233f; color: #fff; padding: 18px 28px; }
+  header h1 { margin: 0; font-size: 22px; }
+  header p { margin: 4px 0 0; font-size: 13px; opacity: .8; }
+  main { max-width: 1100px; margin: 24px auto; padding: 0 20px; }
+  .card { background: #fff; border-radius: 10px; padding: 20px; margin-bottom: 20px; box-shadow: 0 1px 3px rgba(0,0,0,.08); }
+  .card h2 { margin: 0 0 12px; font-size: 16px; }
+  button { background: #1f6feb; color: #fff; border: 0; border-radius: 6px; padding: 9px 16px; font-size: 14px; cursor: pointer; }
+  button:disabled { opacity: .5; cursor: wait; }
+  button.approve { background: #2da44e; }
+  button.reject { background: #cf222e; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  #failTable { table-layout: fixed; }
+  #failTable th:nth-child(1), #failTable td:nth-child(1) { width: 8%; }
+  #failTable th:nth-child(2), #failTable td:nth-child(2) { width: 6%; }
+  #failTable th:nth-child(3), #failTable td:nth-child(3) { width: 13%; }
+  #failTable th:nth-child(4), #failTable td:nth-child(4) { width: 13%; }
+  #failTable th:nth-child(5), #failTable td:nth-child(5) { width: 25%; }
+  #failTable th:nth-child(6), #failTable td:nth-child(6) { width: 35%; }
+  #failTable td, #failTable th { overflow-wrap: anywhere; word-break: break-word; }
+  th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid #e5e8ec; vertical-align: top; }
+  th { background: #f0f3f7; }
+  .badge { padding: 3px 9px; border-radius: 12px; font-size: 12px; font-weight: 600; color: #fff; }
+  .CERTIFIED { background: #2da44e; }
+  .NEEDS_HUMAN_REVIEW { background: #d29922; }
+  .BLOCKED { background: #cf222e; }
+  .NO_DATA { background: #6e7781; }
+  .INCOMPLETE { background: #8250df; }
+  #alerts div { background: #ffebe9; color: #82071e; border-radius: 6px; padding: 8px 12px; margin-bottom: 6px; font-size: 13px; }
+  .muted { color: #57606a; font-size: 13px; }
+  #banner { padding: 10px 14px; border-radius: 8px; font-size: 13px; margin-bottom: 16px; background: #ddf4ff; color: #0a3069; }
+  #banner.mock { background: #fff8c5; color: #4d2d00; }
+  #status { margin-left: 12px; font-size: 13px; color: #57606a; }
+  .evidence { font-family: ui-monospace, monospace; font-size: 12px; color: #444; word-wrap: break-word; overflow-wrap: break-word; white-space: normal; }
+</style>
+</head>
+<body>
+<header>
+  <h1>VERA - Verified Evaluation &amp; Risk Assurance</h1>
+  <p>Certification and drift monitoring for a simulated claims recommendation agent</p>
+</header>
+<main>
+  <div id="banner">Agent provider: not run yet.</div>
+  <div class="card">
+    <button id="runBtn" onclick="runTests()">Run assurance suite</button>
+    <span id="status">Not run yet.</span>
+  </div>
+
+  <div class="card" id="alertCard" style="display:none">
+    <h2>Drift alerts (compared with the previous comparable run)</h2>
+    <div id="alerts"></div>
+  </div>
+
+  <div class="card">
+    <h2>Pass rate per batch and dimension</h2>
+    <p class="muted">Batches 1-3: increasing difficulty. Batch 4: security cases (prompt injection, PII). Batch 5: boundary cases around the 12% rule. A batch with a critical failure (possible wrong payout) cannot be auto-certified.</p>
+    <canvas id="driftChart" height="90"></canvas>
+  </div>
+
+  <div class="card">
+    <h2>Certification status per batch</h2>
+    <table id="batchTable"><thead>
+      <tr><th>Batch</th><th>Cases tested</th><th>Coverage limit</th><th>Evidence grounding</th><th>Prompt injection</th><th>PII</th><th>Overall</th><th>Critical failures</th><th>API errors</th><th>Auto status</th><th>Final status</th><th>Human review</th></tr>
+    </thead><tbody></tbody></table>
+  </div>
+
+  <div class="card">
+    <h2>Run history (real run-over-run drift)</h2>
+    <canvas id="historyChart" height="80"></canvas>
+    <table id="runTable" style="margin-top:12px"><thead>
+      <tr><th>Run</th><th>Time (UTC)</th><th>Provider</th><th>Model</th><th>Prompt</th><th>Tested / total</th><th>API errors</th><th>Overall per batch</th></tr>
+    </thead><tbody></tbody></table>
+  </div>
+
+  <div class="card">
+    <h2>Failed checks with evidence</h2>
+    <table id="failTable"><thead>
+      <tr><th>Case</th><th>Batch</th><th>Dimension</th><th>Rule violated</th><th>Expected vs actual</th><th>Agent output</th></tr>
+    </thead><tbody></tbody></table>
+  </div>
+</main>
+
+<script>
+let chart = null;
+let historyChart = null;
+const pctOrNa = v => (v === null || v === undefined) ? 'n/a' : pct(v);
+const pct = v => (v * 100).toFixed(1) + '%';
+
+async function runTests() {
+  const btn = document.getElementById('runBtn');
+  const status = document.getElementById('status');
+  btn.disabled = true;
+  status.textContent = 'Running 36 cases through the agent... a live run takes about 4 minutes.';
+  try {
+    const res = await fetch('/api/run', { method: 'POST' });
+    if (!res.ok) throw new Error('Server returned ' + res.status);
+    render(await res.json());
+    status.textContent = 'Run complete.';
+  } catch (e) {
+    status.textContent = 'Error: ' + e.message;
+  }
+  btn.disabled = false;
+}
+
+async function review(batch, approve) {
+  const reviewer = prompt('Reviewer name:', '');
+  if (reviewer === null) return;
+  const reason = prompt('Reason for ' + (approve ? 'approval' : 'rejection') + ':', '');
+  if (reason === null) return;
+  await fetch('/api/review/' + batch + '?approve=' + approve + '&reviewer=' + encodeURIComponent(reviewer || 'anonymous') +
+    '&reason=' + encodeURIComponent(reason), { method: 'POST' });
+  const res = await fetch('/api/report');
+  render(await res.json());
+}
+
+function render(report) {
+  const banner = document.getElementById('banner');
+  if (report.provider === 'mock') {
+    banner.className = 'mock';
+    banner.textContent = 'Agent provider: MOCK - a scripted agent with simulated degradation. This tests the pipeline only; it does not show how a real LLM behaves.';
+  } else {
+    banner.className = '';
+    banner.textContent = 'Agent provider: ' + report.provider + ' (live LLM calls) - model ' + report.model + ', prompt ' + report.promptVersion +
+      (report.runNumber ? ' - run #' + report.runNumber : '');
+  }
+  const alertCard = document.getElementById('alertCard');
+  const alerts = report.driftAlerts || [];
+  alertCard.style.display = alerts.length ? '' : 'none';
+  document.getElementById('alerts').innerHTML = alerts.map(a => '<div>' + a + '</div>').join('');
+  const labels = report.batches.map(b => 'Batch ' + b.batch);
+  const data = {
+    labels,
+    datasets: [
+      { label: 'Coverage-limit compliance', data: report.batches.map(b => b.coveragePassRate * 100), borderColor: '#1f6feb', tension: .2 },
+      { label: 'Evidence grounding', data: report.batches.map(b => b.conflictPassRate * 100), borderColor: '#d29922', tension: .2 },
+      { label: 'Prompt injection', data: report.batches.map(b => b.injectionPassRate === null ? null : b.injectionPassRate * 100), borderColor: '#8250df', tension: .2 },
+      { label: 'PII protection', data: report.batches.map(b => b.piiPassRate === null ? null : b.piiPassRate * 100), borderColor: '#bf3989', tension: .2 },
+      { label: 'Overall', data: report.batches.map(b => b.overallPassRate * 100), borderColor: '#2da44e', borderDash: [6, 4], tension: .2 }
+    ]
+  };
+  if (chart) chart.destroy();
+  chart = new Chart(document.getElementById('driftChart'), {
+    type: 'line', data,
+    options: { scales: { y: { min: 0, max: 100, title: { display: true, text: 'Pass rate (%)' } } } }
+  });
+
+  const tb = document.querySelector('#batchTable tbody');
+  tb.innerHTML = '';
+  report.batches.forEach(b => {
+    const pending = report.pendingHumanReview.includes(b.batch);
+    const actions = pending
+      ? '<button class="approve" onclick="review(' + b.batch + ',true)">Approve</button> ' +
+        '<button class="reject" onclick="review(' + b.batch + ',false)">Reject</button>'
+      : (b.humanOverridden ? 'Reviewed' : '-');
+    tb.innerHTML += '<tr><td>' + b.batch + '</td><td>' + b.casesTested + ' / ' + b.casesTotal + '</td><td>' + pct(b.coveragePassRate) + '</td><td>' + pct(b.conflictPassRate) +
+      '</td><td>' + pctOrNa(b.injectionPassRate) + '</td><td>' + pctOrNa(b.piiPassRate) + '</td><td>' + pct(b.overallPassRate) + '</td><td>' + b.criticalFailures + '</td><td>' + b.errorCount + '</td><td><span class="badge ' + b.autoStatus + '">' + b.autoStatus +
+      '</span></td><td><span class="badge ' + b.finalStatus + '">' + b.finalStatus + '</span></td><td>' + actions + '</td></tr>';
+  });
+
+  const fb = document.querySelector('#failTable tbody');
+  fb.innerHTML = '';
+  report.failedCases.forEach(f => {
+    fb.innerHTML += '<tr><td>' + f.caseId + '</td><td>' + f.batch + '</td><td>' + f.dimension + '</td><td>' + f.ruleViolated +
+      '</td><td class="evidence">' + f.expectedVsActual + '</td><td class="evidence">' + f.agentOutput + '</td></tr>';
+  });
+}
+
+async function loadHistory() {
+  const runs = await (await fetch('/api/runs')).json();
+  const rt = document.querySelector('#runTable tbody');
+  rt.innerHTML = '';
+  runs.slice().reverse().forEach(r => {
+    rt.innerHTML += '<tr><td>#' + r.runNumber + '</td><td>' + r.timestamp.replace('T', ' ').substring(0, 19) + '</td><td>' + r.provider +
+      '</td><td>' + r.model + '</td><td>' + r.promptVersion + '</td><td>' + r.casesTested + ' / ' + r.casesTotal + '</td><td>' + r.apiErrors +
+      '</td><td>' + r.batches.map(b => 'B' + b.batch + ' ' + pct(b.overallPassRate) + ' ' + b.autoStatus).join('<br>') + '</td></tr>';
+  });
+  const batchNos = [...new Set(runs.flatMap(r => r.batches.map(b => b.batch)))].sort();
+  const colors = ['#1f6feb', '#d29922', '#cf222e', '#8250df'];
+  const datasets = batchNos.map((n, i) => ({
+    label: 'Batch ' + n + ' overall',
+    data: runs.map(r => { const b = r.batches.find(x => x.batch === n); return b ? b.overallPassRate * 100 : null; }),
+    borderColor: colors[i % colors.length], tension: .2
+  }));
+  if (historyChart) historyChart.destroy();
+  historyChart = new Chart(document.getElementById('historyChart'), {
+    type: 'line',
+    data: { labels: runs.map(r => '#' + r.runNumber + ' ' + r.provider + '/' + r.promptVersion), datasets },
+    options: { scales: { y: { min: 0, max: 100, title: { display: true, text: 'Overall pass rate (%)' } } } }
+  });
+}
+
+const originalRender = render;
+render = function (report) { originalRender(report); loadHistory().catch(() => {}); };
+
+fetch('/api/report').then(r => r.json()).then(r => { if (r.batches.length) render(r); else loadHistory(); }).catch(() => {});
+</script>
+</body>
+</html>
