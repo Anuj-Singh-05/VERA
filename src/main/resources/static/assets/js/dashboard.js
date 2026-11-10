@@ -6,6 +6,7 @@ import { RULES, isCritical, isApiError } from './rules.js';
 import { icon, statusIcon } from './icons.js';
 import { batchCells, cellsHtml, cellSummary, legendHtml, caseHref } from './lattice.js';
 import { initDrawer, openDrawer, closeDrawer, drawerOpen } from './drawer.js';
+import { verdictOf, pendingBatches, isPending, consistencyProblems } from './verdict.js';
 
 const $ = (s, root = document) => root.querySelector(s);
 
@@ -51,27 +52,10 @@ function summary(r) {
     s.counts[b.finalStatus] = (s.counts[b.finalStatus] || 0) + 1;
   }
   s.overall = s.tested ? s.weighted / s.tested : null;
-  s.pending = (r.pendingHumanReview || []).length;
+  s.pendingList = pendingBatches(r); // the one definition (verdict.js)
+  s.pending = s.pendingList.length;
   s.findings = (r.failedCases || []).filter((f) => !isApiError(f)).length;
   return s;
-}
-
-/** One plain sentence for the run, and the run-level status it implies. */
-function verdictOf(r) {
-  const n = r.batches.length;
-  const c = summary(r).counts;
-  const cert = c.CERTIFIED || 0;
-  if (cert === n) return { status: 'CERTIFIED', text: `All ${word(n).toLowerCase()} batches are certified for this run.` };
-  const parts = [];
-  const w = (k) => word(k).toLowerCase();
-  if (c.BLOCKED) parts.push(`${w(c.BLOCKED)} blocked`);
-  if (c.NEEDS_HUMAN_REVIEW) parts.push(`${w(c.NEEDS_HUMAN_REVIEW)} waiting for a human decision`);
-  if (c.INCOMPLETE) parts.push(`${w(c.INCOMPLETE)} incomplete`);
-  if (c.NO_DATA) parts.push(`${w(c.NO_DATA)} with no data`);
-  const head = cert ? `${word(cert)} of ${word(n).toLowerCase()} batches certified.` : 'No batch is certified.';
-  const tail = parts.join(', ');
-  const status = c.BLOCKED ? 'BLOCKED' : (c.INCOMPLETE || c.NO_DATA ? 'INCOMPLETE' : 'NEEDS_HUMAN_REVIEW');
-  return { status, text: `${head} ${tail.charAt(0).toUpperCase()}${tail.slice(1)}.` };
 }
 
 /* ---------- data ---------- */
@@ -293,7 +277,7 @@ function figures(r) {
     ? `<span class="segs" aria-hidden="true">${ruleParts.map(([k, n]) => `<span style="flex:${n}"></span>`).join('')}</span>
        <ul class="seg-l">${ruleParts.map(([k, n]) => `<li><a href="#findings?rule=${encodeURIComponent(k)}"><b class="num">${n}</b> ${esc(shortRule[k] || ruleText(k))}</a></li>`).join('')}</ul>`
     : '<span class="fig-none">None in this run</span>';
-  const pending = r.pendingHumanReview || [];
+  const pending = s.pendingList;
   return `<section class="figs" aria-label="Key figures">
     <div class="fig"><div class="v num">${s.tested}<small>/${s.total}</small></div><div class="l">Claims scored</div>
       ${ticks(s.total, s.tested, s.total - s.tested)}</div>
@@ -323,17 +307,25 @@ function driftStrip(r) {
   </section>`;
 }
 
+/** Visible warning if the report breaks the decision rule (verdict.js); never hidden. */
+function consistencyNotice(r) {
+  const problems = consistencyProblems(r);
+  if (!problems.length) return '';
+  console.error('VERA report consistency problems:', problems);
+  return `<div class="notice notice-error" role="alert">${icon('alert')}<div><h2>The report contradicts itself</h2>
+    <p>${problems.map(esc).join(' ')} The Approve/Reject buttons follow the server's list.</p></div></div>`;
+}
+
 function overview() {
   if (!hasRun()) return startState();
   const r = state.report;
-  return verdictBlock(r) + figures(r) + driftStrip(r);
+  return consistencyNotice(r) + verdictBlock(r) + figures(r) + driftStrip(r);
 }
 
 /* ----- Batches ----- */
 
 function decisionCell(b, r) {
-  const pending = (r.pendingHumanReview || []).includes(b.batch);
-  if (pending) {
+  if (isPending(r, b.batch)) {
     return `<div class="decide">
       <button class="btn btn-s btn-approve" type="button" data-review="${b.batch}" data-approve="true">Approve</button>
       <button class="btn btn-s btn-reject" type="button" data-review="${b.batch}" data-approve="false">Reject</button></div>`;
