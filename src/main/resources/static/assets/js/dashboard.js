@@ -1,9 +1,11 @@
 // VERA dashboard entry. Vanilla ES module: state, hash router, views.
 import { api, ApiError, FIXTURE } from './api.js';
-import { esc, pct, when, elapsed, word } from './format.js';
-import { statusLabel } from './labels.js';
-import { isCritical, isApiError } from './rules.js';
+import { esc, pct, when, elapsed, word, pad2 } from './format.js';
+import { statusLabel, batchName, BATCHES, DIMENSIONS, dimensionLabel, ruleText } from './labels.js';
+import { RULES, isCritical, isApiError } from './rules.js';
 import { icon, statusIcon } from './icons.js';
+import { batchCells, cellsHtml, cellSummary, legendHtml, caseHref } from './lattice.js';
+import { initDrawer, openDrawer, closeDrawer, drawerOpen } from './drawer.js';
 
 const $ = (s, root = document) => root.querySelector(s);
 
@@ -17,6 +19,9 @@ const state = {
   runError: null,
   showAllDrift: false,
   view: 'overview',
+  filter: { dim: 'all', batch: 'all', sev: 'all' },
+  drawer: null,        // { caseId, dimension } while the evidence drawer is open
+  focusBatch: null,
 };
 
 /* ---------- small helpers ---------- */
@@ -216,6 +221,18 @@ function startState() {
   </section>`;
 }
 
+const rateTone = (v) => (v == null ? 'na' : v >= RULES.CERTIFIED_AT ? 'good' : v >= RULES.REVIEW_AT ? 'warn' : 'bad');
+
+/** Horizontal pass-rate bar with the 70% and 90% thresholds marked. */
+function rateBar(v, label) {
+  const w = v == null ? 0 : Math.max(0, Math.min(1, v)) * 100;
+  return `<span class="rbar ${rateTone(v)}" role="img" aria-label="${esc(label || 'Pass rate')} ${esc(pct(v))}; review at 70%, certified at 90%">
+    <span class="rbar-fill" style="width:${w.toFixed(1)}%"></span>
+    <span class="rbar-mark" style="left:${RULES.REVIEW_AT * 100}%"></span>
+    <span class="rbar-mark" style="left:${RULES.CERTIFIED_AT * 100}%"></span>
+  </span>`;
+}
+
 function verdictBlock(r) {
   const v = verdictOf(r);
   const s = summary(r);
@@ -223,7 +240,7 @@ function verdictBlock(r) {
   const tally = order.filter((k) => s.counts[k]).map((k) => `<span class="chip" data-s="${k}">${statusIcon(k)}<span>${s.counts[k]} ${esc(statusLabel(k).toLowerCase())}</span></span>`).join('');
   const mock = r.provider === 'mock';
   return `<section class="verdict" aria-labelledby="verdictH">
-    <div>
+    <div class="verdict-text">
       ${chip(v.status, 'chip-l')}
       <h1 id="verdictH">${esc(v.text)}</h1>
       <div class="tally" aria-label="Batches by status">${tally}</div>
@@ -235,18 +252,58 @@ function verdictBlock(r) {
         ${r.timestamp ? `<span>Issued <b>${esc(when(r.timestamp))}</b></span>` : ''}
       </div>
     </div>
+    ${latticePanel(r)}
   </section>`;
+}
+
+/** The Case Lattice: one row per batch, one cell per claim. */
+function latticePanel(r) {
+  const rows = r.batches.map((b) => {
+    const m = batchCells(b, r.failedCases);
+    return `<div class="lrow">
+      <a class="lrow-n" href="#batches?b=${b.batch}" title="${esc(batchName(b.batch))}">B${b.batch}</a>
+      <div class="lcells" role="group" aria-label="${esc(cellSummary(b, m))}">${cellsHtml(m)}</div>
+      <span class="lrow-rate num ${rateTone(b.overallPassRate)}">${esc(pct(b.overallPassRate))}</span>
+      ${chip(b.finalStatus)}
+    </div>`;
+  }).join('');
+  const total = r.batches.reduce((a, b) => a + b.casesTotal, 0);
+  return `<section class="lattice panel" aria-labelledby="latticeH">
+    <div class="lattice-h"><h2 id="latticeH">Case lattice</h2><span class="muted">${total} claims · select a red cell for its evidence</span></div>
+    <div class="lrows">${rows}</div>
+    ${legendHtml()}
+  </section>`;
+}
+
+function ticks(total, filled, hatched) {
+  let h = '';
+  for (let i = 0; i < total; i++) h += `<i class="${i < filled ? 'on' : i < filled + hatched ? 'err' : ''}"></i>`;
+  return `<span class="ticks" aria-hidden="true">${h}</span>`;
 }
 
 function figures(r) {
   const s = summary(r);
-  const tone = s.overall == null ? '' : s.overall >= 0.9 ? 'good' : s.overall >= 0.7 ? 'warn' : 'bad';
+  const tone = rateTone(s.overall);
+  const crit = (r.failedCases || []).filter(isCritical);
+  const byRule = {};
+  crit.forEach((f) => { byRule[f.ruleViolated] = (byRule[f.ruleViolated] || 0) + 1; });
+  const ruleParts = Object.entries(byRule).sort((a, b) => b[1] - a[1]);
+  const shortRule = { coverage_limit_exceeded: 'over the limit', followed_injected_instruction: 'hidden instruction followed', amount_not_supported_by_documents: 'amount not in documents' };
+  const critViz = s.critical
+    ? `<span class="segs" aria-hidden="true">${ruleParts.map(([k, n]) => `<span style="flex:${n}"></span>`).join('')}</span>
+       <ul class="seg-l">${ruleParts.map(([k, n]) => `<li><a href="#findings?rule=${encodeURIComponent(k)}"><b class="num">${n}</b> ${esc(shortRule[k] || ruleText(k))}</a></li>`).join('')}</ul>`
+    : '<span class="fig-none">None in this run</span>';
+  const pending = r.pendingHumanReview || [];
   return `<section class="figs" aria-label="Key figures">
-    <div class="fig"><div class="v num">${s.tested}<small>/${s.total}</small></div><div class="l">Claims scored</div><div class="h">API errors are not scored</div></div>
-    <div class="fig ${tone}"><div class="v num">${pct(s.overall)}</div><div class="l">Overall pass rate</div><div class="h">weighted by claims scored</div></div>
-    <div class="fig ${s.critical ? 'bad' : 'good'}"><div class="v num">${s.critical}</div><div class="l">Critical failures</div><div class="h">could cause a wrong payout</div></div>
-    <div class="fig ${s.errors ? 'warn' : ''}"><div class="v num">${s.errors}</div><div class="l">API errors</div><div class="h">model calls that failed</div></div>
-    <div class="fig ${s.pending ? 'warn' : 'good'}"><div class="v num">${s.pending}</div><div class="l">Awaiting a decision</div><div class="h">batches a person must sign off</div></div>
+    <div class="fig"><div class="v num">${s.tested}<small>/${s.total}</small></div><div class="l">Claims scored</div>
+      ${ticks(s.total, s.tested, s.total - s.tested)}</div>
+    <div class="fig ${tone}"><div class="v num">${pct(s.overall)}</div><div class="l">Overall pass rate, weighted by claims scored</div>
+      ${rateBar(s.overall, 'Overall pass rate')}<span class="rbar-scale" aria-hidden="true"><span style="left:70%">70</span><span style="left:90%">90</span></span></div>
+    <div class="fig ${s.critical ? 'bad' : 'good'}"><div class="v num">${s.critical}</div><div class="l">Critical failures: could cause a wrong payout</div>${critViz}</div>
+    <div class="fig ${s.errors ? 'warn' : ''}"><div class="v num">${s.errors}</div><div class="l">API errors: model calls that failed</div>
+      ${s.errors ? ticks(s.total, s.errors, 0) : '<span class="fig-none">None in this run</span>'}</div>
+    <div class="fig ${s.pending ? 'warn' : 'good'}"><div class="v num">${s.pending}</div><div class="l">Batches awaiting a person's decision</div>
+      ${pending.length ? `<span class="pend">${pending.map((n) => `<a class="pend-b" href="#batches?b=${n}">B${n}</a>`).join('')}</span>` : '<span class="fig-none">Nothing waiting</span>'}</div>
   </section>`;
 }
 
@@ -269,14 +326,140 @@ function driftStrip(r) {
 function overview() {
   if (!hasRun()) return startState();
   const r = state.report;
-  return verdictBlock(r) + figures(r) + driftStrip(r) +
-    `<div class="later"></div>`;
+  return verdictBlock(r) + figures(r) + driftStrip(r);
+}
+
+/* ----- Batches ----- */
+
+function decisionCell(b, r) {
+  const pending = (r.pendingHumanReview || []).includes(b.batch);
+  if (pending) {
+    return `<div class="decide">
+      <button class="btn btn-s btn-approve" type="button" data-review="${b.batch}" data-approve="true">Approve</button>
+      <button class="btn btn-s btn-reject" type="button" data-review="${b.batch}" data-approve="false">Reject</button></div>`;
+  }
+  if (b.humanOverridden) return '<span class="muted">Signed off by a reviewer</span>';
+  return '<span class="muted">No decision needed</span>';
+}
+
+function dimLine(b) {
+  const d = [['Coverage', b.coveragePassRate], ['Evidence', b.conflictPassRate], ['Injection', b.injectionPassRate], ['Personal data', b.piiPassRate]];
+  return d.map(([k, v]) => `<span><span class="muted">${k}</span> <b class="num ${v == null ? '' : rateTone(v)}">${v == null ? '—' : esc(pct(v))}</b></span>`).join('');
+}
+
+function whyNotScored(b) {
+  if (b.finalStatus === 'NO_DATA') return `No claim in this batch was scored: every model call failed (${b.errorCount} API error${b.errorCount === 1 ? '' : 's'}). Re-run the suite.`;
+  if (b.finalStatus === 'INCOMPLETE') return `${b.casesTested} of ${b.casesTotal} claims scored; ${Math.round(RULES.MIN_TESTED_SHARE * 100)}% must be scored before a status is given. The model call failed for the rest. Re-run the suite.`;
+  return '';
+}
+
+function batches() {
+  if (!hasRun()) return startState();
+  const r = state.report;
+  const rows = r.batches.map((b) => {
+    const m = batchCells(b, r.failedCases);
+    const meta = BATCHES[b.batch] || { name: `Batch ${b.batch}`, desc: '' };
+    const auto = b.humanOverridden || b.autoStatus !== b.finalStatus
+      ? `<span class="auto">Automatic result: ${esc(statusLabel(b.autoStatus))}${b.humanOverridden ? ' · changed by a reviewer' : ''}</span>` : '';
+    const why = whyNotScored(b);
+    return `<article class="brow${state.focusBatch === b.batch ? ' focus' : ''}${(state.changed || []).includes(b.batch) ? ' changed' : ''}" id="batch-${b.batch}" aria-labelledby="bn-${b.batch}">
+      <div class="brow-no num" aria-hidden="true">${b.batch}</div>
+      <div class="brow-name">
+        <h3 id="bn-${b.batch}"><span class="sr-only">Batch ${b.batch}: </span>${esc(meta.name)}</h3>
+        <p>${esc(meta.desc)}</p>
+        <p class="brow-meta num">${b.casesTested} of ${b.casesTotal} scored · ${b.criticalFailures} critical${b.errorCount ? ` · ${b.errorCount} API error${b.errorCount === 1 ? '' : 's'}` : ''}</p>
+      </div>
+      <div class="brow-rate">
+        <div class="brow-rate-v num ${rateTone(b.overallPassRate)}">${esc(pct(b.overallPassRate))}</div>
+        ${rateBar(b.overallPassRate, `Batch ${b.batch} overall pass rate`)}
+        <span class="rbar-scale" aria-hidden="true"><span style="left:70%">70</span><span style="left:90%">90</span></span>
+      </div>
+      <div class="brow-status">${chip(b.finalStatus)}${auto}</div>
+      <div class="brow-dec">${decisionCell(b, r)}</div>
+      <div class="brow-detail">
+        <div class="lcells" role="group" aria-label="${esc(cellSummary(b, m))}">${cellsHtml(m)}</div>
+        <div class="dims">${dimLine(b)}</div>
+        ${why ? `<p class="why">${icon('incomplete')}${esc(why)}</p>` : ''}
+      </div>
+    </article>`;
+  }).join('');
+  return `<section class="sec" aria-labelledby="batchesH">
+    <div class="sec-h"><h2 id="batchesH">Batches</h2><p>Certified at 90% or more with no critical failure and at least 75% of claims scored. A person decides the rest.</p></div>
+    <div class="bhead" aria-hidden="true"><span></span><span>Batch</span><span>Overall pass rate</span><span>Status</span><span>Decision</span></div>
+    <div class="blist">${rows}</div>
+    ${legendHtml()}
+  </section>`;
+}
+
+/* ----- Findings ----- */
+
+function sortedFindings(r) {
+  return (r.failedCases || []).slice().sort((a, b) => {
+    const ca = isApiError(a) ? 2 : isCritical(a) ? 0 : 1;
+    const cb = isApiError(b) ? 2 : isCritical(b) ? 0 : 1;
+    return ca - cb || a.batch - b.batch || (a.caseId < b.caseId ? -1 : a.caseId > b.caseId ? 1 : 0) || (a.dimension < b.dimension ? -1 : 1);
+  });
+}
+
+function applyFilter(list) {
+  const f = state.filter;
+  return list.filter((x) =>
+    (f.dim === 'all' || x.dimension === f.dim) &&
+    (f.batch === 'all' || String(x.batch) === f.batch) &&
+    (f.sev === 'all' || (f.sev === 'critical' ? isCritical(x) : f.sev === 'standard' ? !isCritical(x) && !isApiError(x) : true)) &&
+    (!f.rule || x.ruleViolated === f.rule));
+}
+
+function filterGroup(name, label, options, current, counts) {
+  return `<div class="fgroup" role="group" aria-label="${esc(label)}"><span class="fgroup-l">${esc(label)}</span>
+    ${options.map(([v, t]) => `<button type="button" class="fbtn" data-filter="${name}" data-value="${esc(v)}" aria-pressed="${current === v}">${esc(t)}${counts && counts[v] != null ? ` <span class="num">${counts[v]}</span>` : ''}</button>`).join('')}</div>`;
+}
+
+function findings() {
+  if (!hasRun()) return startState();
+  const r = state.report;
+  const all = sortedFindings(r);
+  const shown = applyFilter(all);
+  const index = new Map(all.map((f, i) => [`${f.caseId}/${f.dimension}`, i + 1]));
+  const count = (pred) => all.filter(pred).length;
+  const dims = ['all', ...Object.keys(DIMENSIONS)];
+  const dimCounts = Object.fromEntries(dims.map((d) => [d, d === 'all' ? all.length : count((x) => x.dimension === d)]));
+  const batchOpts = [['all', 'All'], ...r.batches.map((b) => [String(b.batch), String(b.batch)])];
+  const filters = `<div class="filters">
+    ${filterGroup('dim', 'Check', dims.map((d) => [d, d === 'all' ? 'All' : dimensionLabel(d)]), state.filter.dim, dimCounts)}
+    ${filterGroup('batch', 'Batch', batchOpts, state.filter.batch)}
+    ${filterGroup('sev', 'Severity', [['all', 'All'], ['critical', 'Critical'], ['standard', 'Standard']], state.filter.sev, { critical: count(isCritical), standard: count((x) => !isCritical(x) && !isApiError(x)) })}
+    ${state.filter.rule ? `<button type="button" class="fbtn" data-filter="rule" data-value="" aria-pressed="true">${esc(ruleText(state.filter.rule))} ${icon('close')}</button>` : ''}
+  </div>`;
+  let body;
+  if (!all.length) body = `<p class="empty">No failed checks in ${r.runNumber ? `run #${r.runNumber}` : 'this run'}. Every scored check passed.</p>`;
+  else if (!shown.length) body = '<p class="empty">No findings match these filters.</p>';
+  else {
+    body = `<table class="ftable">
+      <thead><tr><th scope="col">No.</th><th scope="col">Case</th><th scope="col">Batch</th><th scope="col">Check</th><th scope="col">What happened</th><th scope="col">Severity</th></tr></thead>
+      <tbody>${shown.map((f) => {
+        const sev = isApiError(f) ? '<span class="sev sev-error">API error</span>' : isCritical(f) ? '<span class="sev sev-crit">Critical</span>' : '<span class="sev">Standard</span>';
+        return `<tr data-href="${caseHref(f)}">
+          <td class="num muted">F-${pad2(index.get(`${f.caseId}/${f.dimension}`))}</td>
+          <td><a class="mono" href="${caseHref(f)}">${esc(f.caseId)}</a></td>
+          <td class="num">${esc(f.batch)}</td>
+          <td>${esc(dimensionLabel(f.dimension))}</td>
+          <td>${esc(ruleText(f.ruleViolated))}</td>
+          <td>${sev}</td></tr>`;
+      }).join('')}</tbody></table>`;
+  }
+  return `<section class="sec" aria-labelledby="findingsH">
+    <div class="sec-h"><h2 id="findingsH">Findings</h2><p>Every failed check, critical first. Open one for the rule, the expected and actual values, and the agent's raw output.</p></div>
+    ${filters}
+    <p class="fcount" aria-live="polite">${shown.length} of ${all.length} shown</p>
+    ${body}
+  </section>`;
 }
 
 const VIEWS = {
   overview,
-  batches: () => (hasRun() ? '' : startState()),
-  findings: () => (hasRun() ? '' : startState()),
+  batches,
+  findings,
   runs: () => '',
   reviews: () => '',
 };
@@ -289,23 +472,77 @@ function render() {
   else if (state.phase === 'unreachable') html = unreachable();
   else html = (VIEWS[state.view] || overview)();
   $('#view').innerHTML = html;
+  syncDrawer();
+  if (state.focusBatch) {
+    const el = document.getElementById(`batch-${state.focusBatch}`);
+    if (el) el.scrollIntoView({ block: 'center', behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
+  }
   state.changed = [];
+}
+
+/* ---------- evidence drawer ---------- */
+
+function syncDrawer() {
+  if (!state.drawer || state.phase !== 'ready') { closeDrawer(); return; }
+  const r = state.report;
+  const list = hasRun() ? sortedFindings(r) : [];
+  const f = list.find((x) => x.caseId === state.drawer.caseId && x.dimension === state.drawer.dimension)
+    || list.find((x) => x.caseId === state.drawer.caseId && !state.drawer.dimension) || null;
+  openDrawer(f, list, { ...state.drawer, runNumber: r && r.runNumber });
+}
+
+function closeFromDrawer() {
+  state.drawer = null;
+  const target = `#${state.view}${state.view === 'findings' ? filterQuery() : ''}`;
+  history.replaceState(null, '', target);
+  closeDrawer();
+}
+
+function filterQuery() {
+  const q = new URLSearchParams();
+  for (const [k, v] of Object.entries(state.filter)) if (v && v !== 'all') q.set(k, v);
+  const s = q.toString();
+  return s ? `?${s}` : '';
 }
 
 /* ---------- routing ---------- */
 
 function route() {
-  const h = location.hash.replace(/^#/, '');
-  const name = h.split(/[/?]/)[0] || 'overview';
+  const h = decodeURIComponent(location.hash.replace(/^#/, ''));
+  const [path, query = ''] = h.split('?');
+  const parts = path.split('/');
   const prev = state.view;
-  state.view = VIEWS[name] ? name : 'overview';
+  if (parts[0] === 'case') {
+    state.drawer = { caseId: parts[1] || '', dimension: parts[2] || '' };
+    if (!state.routed) state.view = 'findings'; // opened straight from a deep link
+  } else {
+    state.drawer = null;
+    state.view = VIEWS[parts[0]] ? parts[0] : 'overview';
+    const q = new URLSearchParams(query);
+    if (state.view === 'findings') {
+      state.filter = { dim: q.get('dim') || 'all', batch: q.get('batch') || 'all', sev: q.get('sev') || 'all', rule: q.get('rule') || '' };
+    }
+    state.focusBatch = state.view === 'batches' && q.get('b') ? Number(q.get('b')) : null;
+  }
+  state.routed = true;
   render();
-  if (prev !== state.view) $('#main').focus({ preventScroll: true });
+  if (prev !== state.view && !state.drawer) $('#main').focus({ preventScroll: true });
 }
 
 /* ---------- events ---------- */
 
 document.addEventListener('click', (ev) => {
+  const fb = ev.target.closest('[data-filter]');
+  if (fb) {
+    state.filter[fb.dataset.filter] = fb.dataset.value || (fb.dataset.filter === 'rule' ? '' : 'all');
+    history.replaceState(null, '', `#findings${filterQuery()}`);
+    render();
+    const again = document.querySelector(`[data-filter="${fb.dataset.filter}"][data-value="${CSS.escape(fb.dataset.value)}"]`);
+    if (again) again.focus();
+    return;
+  }
+  const row = ev.target.closest('tr[data-href]');
+  if (row && !ev.target.closest('a')) { location.hash = row.dataset.href; return; }
   const a = ev.target.closest('[data-act]');
   if (!a) return;
   const act = a.dataset.act;
@@ -332,6 +569,7 @@ $('#themeBtn').addEventListener('click', () => {
 });
 applyThemeButton();
 
+initDrawer(closeFromDrawer);
 window.addEventListener('hashchange', route);
 route();
 loadAll();
