@@ -1,0 +1,113 @@
+/* VERA design tokens: the one source for colour, type, space, radius, elevation and motion.
+   Light is the default (projectors wash out dark UIs); dark is a designed theme, not an inversion. */
+
+@font-face {
+  font-family: "Geist";
+  src: url("../fonts/geist-latin.woff2") format("woff2");
+  font-weight: 100 900;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Geist Mono";
+  src: url("../fonts/geist-mono-latin.woff2") format("woff2");
+  font-weight: 100 900;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Instrument Serif";
+  src: url("../fonts/instrument-serif-latin.woff2") format("woff2");
+  font-weight: 400;
+  font-display: swap;
+}
+/* Metric-matched fallbacks so the swap to the real faces does not shift layout. */
+@font-face { font-family: "Geist Fallback"; src: local("Arial"); size-adjust: 104%; ascent-override: 91%; descent-override: 26%; line-gap-override: 0%; }
+@font-face { font-family: "Geist Mono Fallback"; src: local("Consolas"); size-adjust: 109%; ascent-override: 86%; descent-override: 25%; line-gap-override: 0%; }
+@font-face { font-family: "Instrument Serif Fallback"; src: local("Georgia"); size-adjust: 86%; ascent-override: 106%; descent-override: 28%; line-gap-override: 0%; }
+
+:root {
+  color-scheme: light;
+
+  /* Neutrals */
+  --ink: #0b1220;
+  --canvas: #f6f5f1;
+  --surface: #ffffff;
+  --raised: #fbfaf7;
+  --hairline: #e2e0d8;      /* table row rules only */
+  --rule: #8d93a0;          /* structural rules, control borders (3:1) */
+  --muted: #5b6472;
+  --accent: #2459f5;        /* interactive elements and focus only */
+  --accent-ink: #ffffff;
+  --accent-tint: #e9eefe;
+  --selection: #d6e0fd;
+
+  /* Status: certification meaning only, always paired with an icon and a label */
+  --certified: #1f6b47;  --certified-tint: #e6f2eb;
+  --review: #9a5b00;     --review-tint: #fbf0dc;
+  --blocked: #b42318;    --blocked-tint: #fbe7e4;
+  --incomplete: #565878; --incomplete-tint: #ecebf4;
+  --nodata: #6b7280;     --nodata-tint: #eef0f2;
+  --error: #6b7280;
+
+  /* Type */
+  --sans: "Geist", "Geist Fallback", system-ui, "Segoe UI", Arial, sans-serif;
+  --mono: "Geist Mono", "Geist Mono Fallback", ui-monospace, Consolas, monospace;
+  --serif: "Instrument Serif", "Instrument Serif Fallback", Georgia, serif;
+  --fs-verdict: 40px;
+  --fs-numeral: 52px;
+  --fs-h2: 22px;
+  --fs-h3: 18px;
+  --fs-body: 16px;
+  --fs-data: 15px;
+  --fs-small: 14px;
+  --fs-label: 13px;
+
+  /* Space: 8px unit */
+  --s1: 4px; --s2: 8px; --s3: 12px; --s4: 16px; --s5: 24px; --s6: 32px; --s7: 48px; --s8: 64px; --s9: 96px;
+  --gutter: 24px;
+  --side: clamp(16px, 3.4vw, 64px);
+  --max: 1440px;
+
+  /* Radius */
+  --r-control: 6px;
+  --r-panel: 10px;
+
+  /* Elevation: layers and hairlines, one shadow for overlays only */
+  --overlay-shadow: 0 24px 48px rgb(11 18 32 / 0.18), 0 2px 6px rgb(11 18 32 / 0.08);
+  --scrim: rgb(11 18 32 / 0.42);
+
+  /* Motion */
+  --t-fast: 150ms;
+  --t-base: 220ms;
+  --t-slow: 320ms;
+  --ease-out: cubic-bezier(.2, .7, .2, 1);
+  --ease-in-out: cubic-bezier(.6, 0, .3, 1);
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --ink: #e7eaf0;
+  --canvas: #0a0f1a;
+  --surface: #111827;
+  --raised: #172033;
+  --hairline: #243047;
+  --rule: #5d6a82;
+  --muted: #97a1b2;
+  --accent: #7ea2ff;
+  --accent-ink: #0a0f1a;
+  --accent-tint: #1a2747;
+  --selection: #2a3d6e;
+  --certified: #4fbf8a;  --certified-tint: #12301f;
+  --review: #e3a33b;     --review-tint: #33260c;
+  --blocked: #f2776a;    --blocked-tint: #3a1714;
+  --incomplete: #a6a3d9; --incomplete-tint: #23233d;
+  --nodata: #97a1b2;     --nodata-tint: #1c2433;
+  --overlay-shadow: 0 24px 48px rgb(0 0 0 / 0.5);
+  --scrim: rgb(0 0 0 / 0.55);
+}
+
+@media (max-width: 1279px) {
+  :root { --fs-verdict: 32px; --fs-numeral: 42px; }
+}
+@media (max-width: 640px) {
+  :root { --fs-verdict: 27px; --fs-numeral: 34px; --gutter: 16px; }
+}

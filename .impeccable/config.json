@@ -1,0 +1,26 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "overused-font",
+        "value": "geist",
+        "createdAt": "2026-11-10T20:01:46.989Z",
+        "reason": "user approved: D1 accepted the Geist + Geist Mono + Instrument Serif trio in the Stage 2 plan"
+      },
+      {
+        "rule": "overused-font",
+        "value": "geist mono",
+        "createdAt": "2026-11-10T20:01:47.065Z",
+        "reason": "user approved: D1 accepted the Geist + Geist Mono + Instrument Serif trio in the Stage 2 plan"
+      },
+      {
+        "rule": "overused-font",
+        "value": "instrument serif",
+        "createdAt": "2026-11-10T20:01:47.141Z",
+        "reason": "user approved: D1 accepted the Geist + Geist Mono + Instrument Serif trio in the Stage 2 plan"
+      }
+    ]
+  }
+}
