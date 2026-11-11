@@ -287,8 +287,8 @@ function startState() {
 function latticePanel(r, animate) {
   const rows = r.batches.map((b, bi) => {
     const m = batchCells(b, r.failedCases);
-    let i = bi * 8;
-    const cells = cellsHtml(m).replace(/class="cell /g, () => `style="--i:${i++}" class="cell `);
+    let col = 0;
+    const cells = cellsHtml(m).replace(/class="cell /g, () => `style="--col:${col++};--row:${bi}" class="cell `);
     return `<div class="lrow${state.changed.includes(b.batch) ? ' changed' : ''}" data-b="${b.batch}">
       <a class="lrow-n" href="#batches?b=${b.batch}">B${b.batch}</a>
       <span class="lrow-name">${esc(batchName(b.batch))}</span>
@@ -469,12 +469,23 @@ function batches(animate) {
     </tr>`;
   }).join('');
   const line = `${s.counts.CERTIFIED || 0} of ${r.batches.length} certified${s.pending ? ` · ${s.pending} waiting for a decision` : ''} · run #${r.runNumber || '—'}. Certified at 90% or more, no critical failure, at least 75% scored; a person decides the rest.`;
-  return phead('Batches', esc(line)) + `<div class="wrap"><section class="${animate ? 'enter' : ''}" aria-label="Batches">
+  return phead('Batches', esc(line)) + equaliser(r) + `<div class="wrap"><section class="${animate ? 'enter' : ''}" aria-label="Batches">
     <div class="tscroll"><table class="ltable breg stack">
       <thead><tr><th scope="col">No.</th><th scope="col">Batch</th><th scope="col">Claims</th><th scope="col" class="n">Scored</th><th scope="col" class="n">Cover.</th><th scope="col" class="n">Evid.</th><th scope="col" class="n">Inject.</th><th scope="col" class="n">PII</th><th scope="col">Overall</th><th scope="col" class="n">Crit.</th><th scope="col">Status</th><th scope="col">Decision</th></tr></thead>
       <tbody>${rows}</tbody></table></div>
     ${legendHtml()}
   </section></div>`;
+}
+
+/** Signature visual for Batches: per batch, the four check pass rates and the overall rate as
+ *  equaliser bars that rise in. A check that does not apply to a batch is a dashed stub. */
+function equaliser(r) {
+  const dims = [['Cov', 'coveragePassRate'], ['Evi', 'conflictPassRate'], ['Inj', 'injectionPassRate'], ['PII', 'piiPassRate'], ['All', 'overallPassRate']];
+  const groups = r.batches.map((b, gi) => `<figure class="eq-g" aria-label="Batch ${b.batch}: ${dims.map(([k, f]) => `${k} ${b[f] == null ? 'not applicable' : pct(b[f])}`).join(', ')}">
+    <div class="eq-bars">${dims.map(([k, f], i) => `<span class="eq-b${f === 'overallPassRate' ? ' all' : ''}${b[f] == null ? ' na' : ''}" style="--h:${b[f] == null ? 6 : Math.max(3, b[f] * 100).toFixed(1)}%;--d:${gi * 5 + i}"><i>${k}</i></span>`).join('')}
+      <span class="eq-line" style="bottom:90%" aria-hidden="true"></span><span class="eq-line r" style="bottom:70%" aria-hidden="true"></span></div>
+    <figcaption><b class="num">${pad2(b.batch)}</b> ${esc(batchName(b.batch))}</figcaption></figure>`).join('');
+  return `<div class="wrap"><div class="eq" aria-label="Pass rate per check and batch">${groups}<p class="eq-key">Bars: coverage, evidence, injection, personal data, overall. Lines at 90% and 70%.</p></div></div>`;
 }
 
 /* ----- Findings ----- */
@@ -530,7 +541,7 @@ function findings() {
       <tbody>${shown.map((f) => {
         const sev = isApiError(f) ? '<span class="sev sev-error">API error</span>' : isCritical(f) ? '<span class="sev sev-crit">Critical</span>' : '<span class="sev">Standard</span>';
         const m = models.get(f.batch);
-        return `<tr data-href="${caseHref(f)}">
+        return `<tr data-href="${caseHref(f)}" data-dim="${esc(f.dimension)}" data-b="${esc(f.batch)}">
           <td class="fno" data-l="No.">F-${pad2(index.get(`${f.caseId}/${f.dimension}`))}</td>
           <td data-l="Case"><a class="case-link" href="${caseHref(f)}" data-key="${esc(`${f.caseId}/${f.dimension}`)}">${esc(f.caseId)}</a></td>
           <td data-l="Batch ${esc(f.batch)}">${m ? miniLattice(m, f.caseId, `${f.caseId} within batch ${f.batch}`) : ''} <span class="fno">B${esc(f.batch)}</span></td>
@@ -542,7 +553,26 @@ function findings() {
   const crit = count(isCritical);
   return phead('Findings', esc(`${all.length} failed check${all.length === 1 ? '' : 's'} in run #${r.runNumber || '—'}, ${crit} critical. Select a row for the rule, the values compared and the agent's raw output.`),
     `<span class="fcount" aria-live="polite">${shown.length} of ${all.length} shown</span>`, filters) +
-    `<div class="wrap"><section aria-label="Findings">${body}</section></div>`;
+    `<div class="wrap">${all.length ? findingsMatrix(r, all) : ''}<section aria-label="Findings">${body}</section></div>`;
+}
+
+/** Signature visual for Findings: failed checks counted by check (rows) and batch (columns).
+ *  Each square's inner fill grows with the count; click to filter the list to that pair. */
+function findingsMatrix(r, all) {
+  const dims = Object.keys(DIMENSIONS);
+  const max = Math.max(1, ...dims.flatMap((d) => r.batches.map((b) => all.filter((f) => f.dimension === d && f.batch === b.batch).length)));
+  const head = `<span></span>${r.batches.map((b) => `<span class="fm-col">B${b.batch}</span>`).join('')}<span class="fm-col">All</span>`;
+  const rows = dims.map((d) => {
+    const n = all.filter((f) => f.dimension === d).length;
+    return `<span class="fm-row">${esc(dimensionLabel(d))}</span>${r.batches.map((b) => {
+      const c = all.filter((f) => f.dimension === d && f.batch === b.batch).length;
+      const on = state.filter.dim === d && state.filter.batch === String(b.batch);
+      return c ? `<button type="button" class="fm-cell${on ? ' on' : ''}" data-act="matrix" data-dim="${esc(d)}" data-b="${b.batch}" style="--k:${(c / max).toFixed(2)}" aria-label="${c} failed ${esc(dimensionLabel(d))} check${c === 1 ? '' : 's'} in batch ${b.batch}" aria-pressed="${on}"><i></i><b class="num">${c}</b></button>`
+        : `<span class="fm-cell zero" aria-label="none"><b class="num">·</b></span>`;
+    }).join('')}<span class="fm-sum num">${n}</span>`;
+  }).join('');
+  return `<section class="fmatrix" aria-label="Failed checks by check and batch"><div class="fm-grid" style="--cols:${r.batches.length}">${head}${rows}</div>
+    <p class="fm-note">Failed checks by check and batch. Select a square to list only those.</p></section>`;
 }
 
 /* ----- Runs ----- */
@@ -577,7 +607,7 @@ function reviews() {
         <td class="num" data-l="Run">#${esc(x.runNumber)}</td>
         <td data-l="Batch"><b class="num">B${esc(x.batch)}</b> ${esc(batchName(x.batch))}</td>
         <td data-l="Its claims">${m ? miniLattice(m, null, `Batch ${x.batch} claims in run ${x.runNumber}`) : '<span class="fno" title="Case results are kept only for the run loaded on the server">—</span>'}</td>
-        <td data-l="Decision">${x.approved ? `<span class="dec-mark ok">${icon('certified')}Approved</span>` : `<span class="dec-mark no">${icon('blocked')}Rejected</span>`}</td>
+        <td data-l="Decision">${x.approved ? `<span class="dec-mark stamp ok">Approved</span>` : `<span class="dec-mark stamp no">Rejected</span>`}</td>
         <td data-l="Reviewer">${esc(x.reviewer)}</td>
         <td class="wide" data-l="Note">${x.reason ? esc(x.reason) : '<span class="fno">—</span>'}</td></tr>`;
       }).join('')}</tbody></table></div>`
@@ -716,6 +746,13 @@ document.addEventListener('click', (ev) => {
   const act = a.dataset.act;
   if (act === 'run' || act === 'retry-run') runSuite();
   else if (act === 'reload') { state.phase = 'loading'; render(); loadAll(); }
+  else if (act === 'matrix') {
+    const same = state.filter.dim === a.dataset.dim && state.filter.batch === a.dataset.b;
+    state.filter.dim = same ? 'all' : a.dataset.dim; state.filter.batch = same ? 'all' : a.dataset.b;
+    history.replaceState(null, '', `#findings${filterQuery()}`);
+    render();
+    document.querySelector(`.fm-cell[data-dim="${a.dataset.dim}"][data-b="${a.dataset.b}"]`)?.focus();
+  }
   else if (act === 'toggle-drift') { state.showAllDrift = !state.showAllDrift; render(); $('[data-act="toggle-drift"]')?.focus(); }
 });
 
@@ -785,6 +822,9 @@ document.addEventListener('pointerover', (e) => {
     const n = dec.dataset.pend || dec.id.replace('batch-', '');
     document.querySelector(`.lrow[data-b="${n}"]`)?.classList.add('hot');
   }
+  document.querySelectorAll('tr.mhot').forEach((r) => r.classList.remove('mhot'));
+  const fm = t.closest('.fm-cell[data-dim]');
+  if (fm) document.querySelectorAll(`tr[data-dim="${fm.dataset.dim}"][data-b="${fm.dataset.b}"]`).forEach((r) => r.classList.add('mhot'));
   const pt = t.closest('.pt');
   document.querySelectorAll('.runs-t tr.hot, .tl-run.hot, .pt.on').forEach((r) => r.classList.remove('hot', 'on'));
   document.querySelectorAll('.xh').forEach((l) => l.setAttribute('visibility', 'hidden'));
