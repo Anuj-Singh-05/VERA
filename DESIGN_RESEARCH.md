@@ -16,6 +16,108 @@ Sources used to find sites: Awwwards (Finance, Technology and Sites-of-the-Day l
 fintech, insurtech, security, compliance and AI-governance product sites. Land-book's category filter did
 not apply in the session (it showed its general feed), so it yielded no usable fintech entries.
 
+## My 7 references
+
+### (a) How I looked at them: the honest answer
+In Stage 1 all seven were **loaded in a real browser** (the built-in pane). I read them through scripts that
+extract the live DOM: text, computed fonts and sizes, background colours, libraries.
+
+- **Screenshots and scrolling:** the pane was hidden most of the night, so screenshots timed out. I **scrolled only Endcap** (that screenshot failed). The **only page I actually saw was the Arize Phoenix hero**.
+- **In practice:** for six of the seven my notes came from text and code, not from looking at the design.
+
+**Done now (11 Nov):** each site was opened in a headless Chrome at 1440×900 and scrolled top to bottom, with a
+screenshot at every viewport. Stellar scrolls inside its own container, so it was driven with mouse-wheel events.
+That gave 82 frames in `scratchpad/refs/` (outside the repo):
+- endcap-00…13
+- roomandpillar-00…08
+- stellar-w00…09
+- beady-00…13
+- honeyquote-00…11
+- vanta-00…10
+- phoenix-00…10
+
+Read-only throughout. Beady, Vanta and Phoenix showed cookie banners; I did not click them, so they cover part of some frames.
+
+### (b) Three things taken from each, and where they are
+Where I could not honestly name three things that are really in the build, I say so.
+
+**Endcap** (endcap.design)
+1. Extreme scale contrast in headlines: the landing `.hero h1` and the `.close h2` "See it run." (`assets/css/landing.css`).
+2. Whole sections as one flat colour band: the cobalt `.marquee` and the `#close` section (`landing.html`).
+3. *Not taken until now:* square black buttons. In Stage 2 I listed them, but I built pill buttons.
+
+Seen in the screenshots:
+- A full-chartreuse hero.
+- Square black buttons.
+- A hairline rule under the nav.
+- Ruled, numbered project rows.
+- A chartreuse **highlighter swipe** under key words.
+
+**Room & Pillar** (roomandpillar.com)
+1. Ink and light chapters alternating down the page: the landing section order (hero, checks, results, close).
+2. A mono face for data: JetBrains Mono for IDs, rule codes and run metadata (`.meta b`, `.case-link`, the marquee).
+3. One concrete insurance-problem paragraph instead of slogans: the landing `#why` section.
+
+Seen in the screenshots:
+- Near-black and pale grey only.
+- An **acid-lime** action button.
+- **All-mono uppercase ruled tables** (Partner / Category / Website).
+- Bracket labels and dot-grid textures.
+
+**Stellar Management** (stellarmanagement.com)
+1. The key-figures pattern of a big number over a short label, with no eyebrow: dashboard `.figs`, landing `.hero-facts`.
+2. One type family carrying the whole hierarchy: Archivo only (`tokens.css`).
+3. Deep navy as the serious colour: `--brand-ink` #070d24.
+
+Seen in the screenshots:
+- The figures sit in a **grid divided by thin rules on navy, with no cards**.
+- Lists are **ruled rows with a thick rule on the active item**.
+
+**Beady AI** (beady.ai)
+1. "Every finding linked to its source": lattice cells open the evidence drawer (`lattice.js`, `drawer.js`).
+2. A label wherever data is illustrative: the "Fixture data" banner and the "Simulated agent" notes on the landing page.
+3. *Weak:* small UI fragments instead of a whole fake dashboard. The landing check visuals are small diagrams, not real UI.
+
+Seen in the screenshots:
+- Small uppercase **solid status tags** (APPROVED / BLOCKED / REVIEW) inside product fragments.
+- Mini bar charts.
+- A green highlighter under headline words.
+
+**HoneyQuote** (honeyquote.com)
+1. One plain sentence per rule: `RULE_STATEMENT` in `labels.js` (drawer) and `.check .rule` on the landing page.
+2. Steps written as verbs: the landing `.steps` ("Send the claim", "Read the agent's reply"…).
+3. *No longer present:* regular-weight serif headlines. Instrument Serif was used in checkpoint (b), then dropped.
+
+Seen in the screenshots:
+- Consumer photography (not for us).
+- A **comparison table with one solid-filled column** and yes/no marks.
+
+**Vanta** (vanta.com)
+1. The checks presented as name plus one line: landing `#checks`. *Partly:* I built them as cards, not a list.
+2. No logo walls, badges or testimonials: honoured by leaving them out.
+3. *Not really taken:* "enterprise calm" is not traceable to a specific element.
+
+Seen in the screenshots:
+- Periwinkle fields, a serif face and a dotted-wave texture (purple; not for us).
+- A **risk grid of green, amber and red cells, each carrying an icon**: a lattice where colour is not the only signal.
+
+**Arize Phoenix** (arize.com/phoenix)
+1. The drill-down from aggregate to item to raw trace: Overview lattice → evidence drawer → raw agent output.
+2. Showing the real command: the "unreachable" notice shows `mvn spring-boot:run` (`.cmd`).
+3. A dark technical hero with grid line work: the landing hero (`.hero-static`).
+
+Seen in the screenshots:
+- **Square-cornered** buttons.
+- **Mono ID chips** with copy buttons.
+- Trace trees and severity tables.
+- A side-by-side prompt comparison headed "Test changes with evidence".
+
+### What the screenshots change (used in the dashboard redesign)
+- **Highlighter, not cobalt** (Endcap, Room & Pillar, Beady). Three of the seven use an acid-lime or chartreuse highlight on black and white. The dashboard now uses a lime highlighter to mark what you are looking at: the active tab, the selected filter, the focused or hovered row. It is never used for a status.
+- **Ruled ledger tables in mono** (Room & Pillar, Stellar, HoneyQuote): rules instead of cards, tabular mono numbers.
+- **Solid status blocks** (Beady's tags, Vanta's cells with icons): instead of pastel pills.
+- **Square controls** (Endcap, Phoenix).
+
 ## Sites reviewed (27)
 
 | # | Site | Category | What it is built from (measured) | Fit for VERA (Guidewire execs, insurtech, AI governance) | Techniques worth borrowing |
