@@ -368,7 +368,7 @@ body { font-size: 16px; }
 .hv-card dl { margin: 0; }
 .hv-card dl div { display: flex; justify-content: space-between; border-top: 1px solid var(--hair); padding: 7px 0; font-size: 14px; }
 .hv-card dd { margin: 0; font: 600 14px var(--mono); }
-.hv-reply { margin: 0; padding: 18px; background: #171512; color: #efe9dd; font: 14px/1.7 var(--mono); border-left: 3px solid var(--accent); white-space: pre-wrap; }
+.hv-reply { margin: 0; padding: 18px; background: #171512; color: #efe9dd; font: 14px/1.7 var(--mono); border-top: 1px solid var(--accent); white-space: pre-wrap; }
 .hv-cap { margin-top: 10px; font: italic 400 19px/1.3 var(--serif); }
 .hv-checks { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--ink); }
 .hv-checks li { display: flex; align-items: center; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--hair-2); font-size: 15px; flex-wrap: wrap; }
