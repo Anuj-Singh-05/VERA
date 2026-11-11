@@ -5,3 +5,6 @@ target/
 *.log
 vera-data/
 .github/modernize/
+
+.claude/
+references/
