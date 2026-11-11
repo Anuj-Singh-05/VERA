@@ -435,3 +435,9 @@ body { font-size: 16px; }
 }
 .stamp-l { top: auto; bottom: 14px; right: 0; }
 .hl-grid.big i.t { background-color: var(--ink); } /* closing block: orange stays on the button and one word */
+/* The headline is split into words by JS; hide it until then so the split never shows as a shift.
+   Fallback: it appears after 2s even if the script fails. */
+@media (prefers-reduced-motion: no-preference) {
+  .js .hero h1.split:not(.split-ready) { visibility: hidden; animation: showLate 0s 2s forwards; }
+}
+@keyframes showLate { to { visibility: visible; } }

@@ -22,7 +22,7 @@
   src: url("../fonts/archivo-var-latin.woff2") format("woff2");
   font-weight: 100 900;
   font-stretch: 62% 125%;
-  font-display: swap;
+  font-display: block; /* no fallback-to-webfont reflow in the display headline */
 }
 @font-face {
   font-family: "JetBrains Mono";
