@@ -20,6 +20,15 @@
         "value": "instrument serif",
         "createdAt": "2026-11-10T20:01:47.141Z",
         "reason": "user approved: D1 accepted the Geist + Geist Mono + Instrument Serif trio in the Stage 2 plan"
+      },
+      {
+        "rule": "side-tab",
+        "value": "*",
+        "files": [
+          "src/main/resources/static/assets/css/dashboard.css"
+        ],
+        "createdAt": "2026-11-11T18:19:26.259Z",
+        "reason": "Claude triage: dashboard.css:453 is the Overview lattice's 3px scan line, a pseudo-element that sweeps across the cells once on load (scanLine keyframes), not a static side border on a card"
       }
     ]
   }
