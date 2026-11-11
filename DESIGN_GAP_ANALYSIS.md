@@ -1,0 +1,21 @@
+# Gap analysis: VERA screens against the shortlist
+
+Shortlist (DESIGN_RESEARCH.md): Coalition, DeepBook, At-Bay, Arize Phoenix, Beady AI, Stripe.
+Method: screenshots at 1920×1080, 1280×720 and 390 px, light and dark, read one by one. Each row says what
+looked bland, flat or template-like, what was changed, and what still falls short. Iteration counts are real
+(screenshot rounds actually taken and looked at), not targets.
+
+| Screen | Gap found (before the fix) | Fix | Still short of the references |
+|---|---|---|---|
+| **Overview** (3 rounds: d, d2, e4) | Earlier drafts: cream paper, serif, a flat verdict with an empty right half and figures with no visuals. In round 1 of the new look the grain was so strong the band looked grey and noisy; the verdict sentence was too long for display type; the Run button was clipped at 1280. | Ink verdict band with ledger grid and a cobalt dawn; case lattice as the right-hand visual with bevelled blocks that settle in; key figures lifted onto the band with ticks, threshold bars, critical split by rule and pending-batch chips; grain cut from 55% to 7% alpha; shorter sentence ("two in review"); agent chip hidden below 1440. | The lattice is still flat 2.5D tiles; At-Bay and Stripe show richer product depth. No chart of the latest run beyond the bars. |
+| **Batches** (3 rounds) | Earlier: a plain table. Round 1: OK, but the focused row used a thick left bar (a "side-tab" tell). | One card per batch with an oversized cobalt index, a large rate, a bar with 70/90 marks, status chip with "automatic result … signed off by a reviewer", case cells and the four check rates; the focus tint replaces the side bar. | Rows are tall; five rows need a scroll at 1280×720. |
+| **Findings** (2 rounds) | Reads like a generic admin table. | Ink page band, pill filters with counts (including API error), critical tag in solid ink, row hover, deep links. | Still a table at heart; Phoenix-style trace detail lives only in the drawer. |
+| **Runs** (2 rounds) | Chart y-labels collided (100/90); dates and model names wrapped. | Taller panels, 90/70 labels only, nowrap cells; joins only between same-setup runs so calibration shows as a gap. | With only two runs the chart is sparse; it becomes meaningful with history. |
+| **Reviews** (2 rounds) | Plain list. | Decision chips (Approved/Rejected), pending notice linking to the batches. | Functional, not expressive. |
+| **Evidence drawer** (2 rounds) | "What the rule expected" repeated the recommended amount instead of stating the rule. | Ink header with plain-language rule and code; "What the rule requires" states the rule; values compared; the agent's raw words in an ink code panel; big recommended amount in red. | No document-level evidence (the API does not return claim documents; no Java changes were allowed). |
+| **Landing** (4 rounds: f1, f2, e2/f3, e3/f4) | f1: headline ran into the hero lattice; facts cut off at 1080; nav turned grey over light sections; results labels wrapped. e1/e2: checks read as four identical cards; the close section had an empty right half; the lattice in the close section covered "run."; injection visual text spilled past its document; coloured glow shadows and a thick top bar on the "why" cards (AI-UI tells). | Lattice moved right and smaller; headline capped; facts hidden on short screens; solid nav; staggered checks with draw-in visuals; 3D tilted lattice in the close section behind the text; wider injection document; glows replaced with neutral shadows; side bars removed. | The hero lattice is canvas-drawn and neutral by rule (no real data), so it is illustrative rather than proof. No page transitions. "How it works" pins with CSS sticky only; it is not a full scrubbed animation like DeepBook's GSAP timelines. |
+
+## What a stranger might still call "template"
+1. The section pattern on the landing page is heading, paragraph, then cards. That is common, though the cards differ in shape per section.
+2. The Findings and Reviews tables are standard data tables. That is appropriate for an operator screen, but not memorable.
+3. Without photography or commissioned illustration, the landing page relies on type, colour and the lattice motif. That is a deliberate choice (no stock photos, no AI imagery), but it is plainer than Tines or Coalition.

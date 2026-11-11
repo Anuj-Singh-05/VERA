@@ -35,6 +35,23 @@ NEEDS_HUMAN_REVIEW and BLOCKED wait for a human approve/reject (name + reason lo
 
 ## Run
 Mock (no key, offline): `mvn spring-boot:run`, open http://localhost:8080
+
+To test without adding runs to your real `vera-data/` history, point VERA at a temporary folder (PowerShell):
+
+    $env:VERA_HISTORY_DIR="$env:TEMP\vera-test"; mvn spring-boot:run
+
+## Web pages
+- `/` (`index.html`): the previous dashboard, unchanged.
+- `/dashboard.html`: the redesigned dashboard (Overview, Batches, Findings, Runs, Reviews, evidence drawer).
+- `/landing.html`: the product page for VERA.
+- `/legacy.html`: a copy of the previous dashboard, kept as a fallback.
+- Test data for UI states: `/dashboard.html?fixture=incomplete|nodata|apierror|long|many|zero` (always labelled "Fixture data").
+
+To make the landing page the home page (`/`), run from the project root:
+
+    git mv src/main/resources/static/index.html src/main/resources/static/index-previous.html; git mv src/main/resources/static/landing.html src/main/resources/static/index.html
+
+Front-end rule tests (Node 18+, no packages): `node --test src/test/js/verdict.test.mjs`
 Expected mock result (failures 0,2,5,5,0): B1 100% CERTIFIED, B2 87.5% NEEDS_HUMAN_REVIEW,
 B3 68.8% BLOCKED, B4 79.2% NEEDS_HUMAN_REVIEW, B5 100% CERTIFIED. Mock results test the pipeline only.
 
