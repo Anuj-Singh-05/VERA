@@ -72,7 +72,7 @@ body { font-size: 16px; }
 .hero-pause:hover { color: var(--ink); }
 
 /* Headline entrance */
-.split-ready .w { display: inline-block; overflow: hidden; vertical-align: top; padding-bottom: .1em; margin-bottom: -.1em; }
+.split-ready .w { display: inline-block; overflow: hidden; vertical-align: top; padding: 0 .12em .12em; margin: 0 -.12em -.12em; }
 .split-ready .w > span { display: inline-block; transform: translateY(105%); transition: transform 900ms var(--ease-out); transition-delay: calc(var(--i) * 55ms); }
 .split-ready.in .w > span { transform: none; }
 .js .reveal-up { opacity: 0; transform: translateY(12px); transition: opacity 600ms var(--ease-out) 450ms, transform 600ms var(--ease-out) 450ms; }
@@ -292,7 +292,7 @@ body { font-size: 16px; }
    Tier B: colour bands (cream, tint, ink, orange), type roles, wordmark.
    Sky and butter are for bands and illustration only, never status.
    ====================================================================== */
-.ink-band, .marquee, .results, .lfoot {
+.ink-band, .marquee, .results, .close {
   --paper: #171512; --paper-2: #211e1a; --ink: #efe9dd; --ink-rgb: 239 233 221; --muted: #b3ab9d;
   --hair: rgb(239 233 221 / .16); --hair-2: rgb(239 233 221 / .3); --accent: #f06a2e;
   --hatch: repeating-linear-gradient(135deg, #efe9dd 0 1.5px, transparent 1.5px 5px);
@@ -318,8 +318,8 @@ body { font-size: 16px; }
 
 /* Wordmark: Archivo at its widest, tracked open */
 .wm-word { font-weight: 900; font-stretch: 125%; letter-spacing: .06em; font-size: 18px; }
-.lfoot { border-top: 0; padding-top: 48px; }
-.lfoot-word { font-weight: 900; font-stretch: 125%; letter-spacing: .02em; font-size: 23vw; line-height: .78; color: var(--accent); }
+.lfoot { border-top: 1px solid var(--ink); padding-top: 40px; background: var(--paper); }
+.lfoot-word { font-weight: 900; font-stretch: 125%; letter-spacing: .02em; font-size: 23vw; line-height: .78; color: var(--ink); }
 .lfoot .disclaimer { color: var(--muted); }
 
 /* Illustration accents in the supporting colours */
@@ -329,3 +329,12 @@ body { font-size: 16px; }
 .rc-v2 .rc-fill { background: var(--ink); }
 .results .rb-hot .rb-v { color: var(--butter); }
 .rc-track { height: 22px; } .rc-val { font-size: 15px; } .rc-bars { gap: 8px; }
+
+/* Closing block: ink field, cream type; orange only on the button and one word */
+.close { border-top: 0; }
+.close h2 em { font-style: normal; color: var(--accent); }
+.close-side p { color: var(--ink); }
+.close-btn { border-color: var(--accent); }
+.close-lattice, .cl-row i { border-color: var(--hair-2) !important; }
+.close.in-view .cl-row i { background: var(--ink); }
+.lfoot-in { grid-template-columns: minmax(0, 1fr); }

@@ -568,7 +568,7 @@ function findingsMatrix(r, all) {
       const c = all.filter((f) => f.dimension === d && f.batch === b.batch).length;
       const on = state.filter.dim === d && state.filter.batch === String(b.batch);
       return c ? `<button type="button" class="fm-cell${on ? ' on' : ''}" data-act="matrix" data-dim="${esc(d)}" data-b="${b.batch}" style="--k:${(c / max).toFixed(2)}" aria-label="${c} failed ${esc(dimensionLabel(d))} check${c === 1 ? '' : 's'} in batch ${b.batch}" aria-pressed="${on}"><i></i><b class="num">${c}</b></button>`
-        : `<span class="fm-cell zero" aria-label="none"><b class="num">·</b></span>`;
+        : `<span class="fm-cell zero" aria-label="none"><b class="num">0</b></span>`;
     }).join('')}<span class="fm-sum num">${n}</span>`;
   }).join('');
   return `<section class="fmatrix" aria-label="Failed checks by check and batch"><div class="fm-grid" style="--cols:${r.batches.length}">${head}${rows}</div>
