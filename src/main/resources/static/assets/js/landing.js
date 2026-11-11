@@ -116,8 +116,12 @@ fetch('assets/data/recorded-results.json').then((r) => r.json()).then((d) => {
   $('#caveats').innerHTML = d.caveats.map((c) => `<li>${esc(c)}</li>`).join('');
 }).catch(() => { /* keep the noscript-style text already in the page */ });
 
-/* ---------- Close section: spotlight follows the pointer ---------- */
+/* ---------- Close section: spotlight follows the pointer; lattice wave when in view ---------- */
 const close = $('#close');
+if (close) {
+  $$('.cl-row i', close).forEach((el, i) => el.style.setProperty('--i', i));
+  new IntersectionObserver(([en]) => close.classList.toggle('in-view', en.isIntersecting), { threshold: 0.3 }).observe(close);
+}
 if (close && !reduced) {
   close.addEventListener('pointermove', (e) => {
     const r = close.getBoundingClientRect();
