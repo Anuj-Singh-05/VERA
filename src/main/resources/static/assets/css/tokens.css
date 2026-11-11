@@ -1,7 +1,16 @@
-/* VERA design tokens: "Cobalt Ledger" (see DESIGN_DIRECTION.md). One source for colour, type,
-   space, radius, elevation and motion. Light is the default for the working dashboard (projectors
-   wash out dark UIs); dark is a designed theme. `.on-ink` and `.on-cobalt` re-scope tokens for
-   bands drawn on the brand's dark and cobalt fields. */
+/* VERA shared tokens: "Cream Ledger". One file for the landing page and the dashboard.
+   Warm cream paper, near-black ink, one warm orange accent used sparingly (the primary action,
+   the active tab, the thing you are pointing at). Structure is drawn with 1px hairlines in ink at
+   low opacity. No gradients, no glows, no pastel blocks.
+
+   Status never relies on the accent or on colour fills. Each status is a small label with a symbol,
+   its word, and a mark: solid ink = certified, hatched = needs review, outlined with a cross =
+   blocked, dashed = incomplete.
+
+   Type, all self-hosted under the SIL Open Font License (see ../fonts/OFL-*.txt):
+   - Display: Archivo variable at 800-900 weight, tracked tight (the heavy, tight grotesque).
+   - UI: Archivo at 400-600, normal width (the quiet grotesque).
+   - Mono: JetBrains Mono, for IDs, amounts and small-caps labels. */
 
 @font-face {
   font-family: "Archivo";
@@ -16,118 +25,71 @@
   font-weight: 100 800;
   font-display: swap;
 }
-/* Metric-matched fallbacks so the swap to the real faces does not shift layout. */
 @font-face { font-family: "Archivo Fallback"; src: local("Arial"); size-adjust: 101%; ascent-override: 88%; descent-override: 21%; line-gap-override: 0%; }
 @font-face { font-family: "JetBrains Mono Fallback"; src: local("Consolas"); size-adjust: 110%; ascent-override: 93%; descent-override: 24%; line-gap-override: 0%; }
 
 :root {
   color-scheme: light;
 
-  /* Brand */
-  --brand-ink: #070d24;      /* navy-black: hero, shell, verdict band */
-  --brand-ink-2: #0e1838;    /* raised on ink */
-  --cobalt: #2340ff;         /* the signature colour; white on it 6.5:1 */
-  --cobalt-deep: #1027c9;
-  --cobalt-lit: #6e7fff;     /* cobalt on ink, 5.6:1 */
-  --ice: #dce3ff;            /* lit edges, secondary text on cobalt (5.1:1) */
+  /* Paper and ink */
+  --paper: #f3eee4;          /* warm cream page */
+  --paper-2: #ebe5d8;        /* a sheet one step down, used sparingly */
+  --ink: #171512;            /* near-black, warm */
+  --ink-rgb: 23 21 18;
+  --muted: #5e584e;          /* 6.1:1 on paper */
+  --faint: #8b8478;          /* decorative only */
+  --hair: rgb(var(--ink-rgb) / .14);   /* hairline rules */
+  --hair-2: rgb(var(--ink-rgb) / .28); /* control borders, section rules */
+  --rule: var(--ink);        /* the one strong rule under a header */
 
-  /* Neutrals (working surfaces) */
-  --ink: #0b1230;
-  --canvas: #f4f5f8;
-  --surface: #ffffff;
-  --raised: #f9fafc;
-  --hairline: #e3e6ee;       /* table row rules only */
-  --rule: #8a93a8;           /* control borders, structural rules (3:1) */
-  --muted: #5a6378;          /* 5.5:1 on canvas */
-  --accent: var(--cobalt);   /* interactive elements and focus */
-  --accent-ink: #ffffff;
-  --accent-tint: #e8ecff;
-  --selection: #cfd8ff;
+  /* The one accent */
+  --accent: #e2551b;         /* warm orange; ink on it 5.4:1, it on paper 3.4:1 (large text and marks only) */
+  --accent-ink: #171512;
+  --accent-soft: rgb(226 85 27 / .12);
 
-  /* Status: certification meaning only, always with an icon and a label */
-  --certified: #1f6b47;  --certified-tint: #e3f2ea;  --certified-fill: #3aa774;
-  --review: #9a5b00;     --review-tint: #fbefd8;     --review-fill: #d9952a;
-  --blocked: #b42318;    --blocked-tint: #fbe5e2;    --blocked-fill: #d8473a;
-  --incomplete: #565878; --incomplete-tint: #ebebf3; --incomplete-fill: #8a8bb5;
-  --nodata: #6b7280;     --nodata-tint: #eef0f3;
+  /* Hatching for "needs review" (drawn in ink, never coloured) */
+  --hatch: repeating-linear-gradient(135deg, var(--ink) 0 1.5px, transparent 1.5px 5px);
 
   /* Type */
+  --display: "Archivo", "Archivo Fallback", system-ui, "Segoe UI", Arial, sans-serif;
   --sans: "Archivo", "Archivo Fallback", system-ui, "Segoe UI", Arial, sans-serif;
   --mono: "JetBrains Mono", "JetBrains Mono Fallback", ui-monospace, Consolas, monospace;
-  --display-stretch: 118%;   /* expanded voice for headlines and numerals */
-  --fs-verdict: 44px;
-  --fs-numeral: 56px;
-  --fs-h2: 24px;
-  --fs-h3: 18px;
-  --fs-body: 16px;
-  --fs-data: 15px;
-  --fs-small: 14px;
-  --fs-label: 13px;
+  --display-weight: 860;
+  --display-track: -.045em;
 
-  /* Space: 8px unit */
+  /* Space: 4px unit */
   --s1: 4px; --s2: 8px; --s3: 12px; --s4: 16px; --s5: 24px; --s6: 32px; --s7: 48px; --s8: 64px; --s9: 96px; --s10: 128px;
-  --gutter: 24px;
-  --side: clamp(16px, 3.4vw, 64px);
+  --side: clamp(16px, 3vw, 48px);
   --max: 1440px;
-
-  /* Radius */
-  --r-control: 8px;
-  --r-panel: 14px;
-  --r-pill: 999px;
-
-  /* Elevation: layers and hairlines; one soft shadow for floating surfaces */
-  --lift: 0 1px 2px rgb(11 18 48 / 0.06), 0 8px 24px rgb(11 18 48 / 0.06);
-  --overlay-shadow: 0 30px 60px rgb(7 13 36 / 0.28), 0 2px 8px rgb(7 13 36 / 0.12);
-  --scrim: rgb(7 13 36 / 0.5);
-
-  /* Texture: SVG grain, generated inline (no external file) */
-  --grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 .07 0'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)'/%3E%3C/svg%3E");
+  --r: 0;
 
   /* Motion */
-  --t-fast: 150ms;
-  --t-base: 240ms;
-  --t-slow: 420ms;
+  --t-fast: 140ms;
+  --t-base: 220ms;
+  --t-slow: 380ms;
   --ease-out: cubic-bezier(.16, 1, .3, 1);
   --ease-in-out: cubic-bezier(.65, 0, .35, 1);
+
+  --scrim: rgb(var(--ink-rgb) / .38);
+
+  /* Legacy names still read by shared components */
+  --canvas: var(--paper);
+  --surface: var(--paper);
+  --raised: var(--paper-2);
+  --hairline: var(--hair);
+  --selection: var(--accent-soft);
 }
 
-/* Tokens re-scoped for content drawn on the ink field (shell, verdict band, landing hero). */
-.on-ink, :root[data-theme="dark"] {
-  --ink: #eef1fb;
-  --surface: #0e1838;
-  --raised: #142046;
-  --hairline: #22305a;
-  --rule: #4a5a8a;
-  --muted: #9aa6cc;
-  --accent: #6e7fff;
-  --accent-ink: #070d24;
-  --accent-tint: #18245a;
-  --selection: #2a3d8e;
-  --certified: #4fbf8a;  --certified-tint: #10301f;  --certified-fill: #3aa774;
-  --review: #e3a33b;     --review-tint: #33260c;     --review-fill: #d9952a;
-  --blocked: #f2776a;    --blocked-tint: #3a1714;    --blocked-fill: #d8473a;
-  --incomplete: #a6a3d9; --incomplete-tint: #23233d; --incomplete-fill: #8a8bb5;
-  --nodata: #9aa6cc;     --nodata-tint: #1a2448;
-  --lift: 0 1px 0 rgb(255 255 255 / 0.04) inset;
-}
 :root[data-theme="dark"] {
   color-scheme: dark;
-  --canvas: #070d24;
-  --overlay-shadow: 0 30px 60px rgb(0 0 0 / 0.55);
-  --scrim: rgb(0 0 0 / 0.6);
-}
-.on-cobalt {
-  --ink: #ffffff;
-  --muted: #dce3ff;
-  --hairline: rgb(255 255 255 / 0.22);
-  --rule: rgb(255 255 255 / 0.5);
-  --accent: #ffffff;
-  --accent-ink: #1027c9;
-}
-
-@media (max-width: 1279px) {
-  :root { --fs-verdict: 36px; --fs-numeral: 46px; }
-}
-@media (max-width: 640px) {
-  :root { --fs-verdict: 28px; --fs-numeral: 36px; --gutter: 16px; }
+  --paper: #161411;
+  --paper-2: #1e1b17;
+  --ink: #efe9dd;
+  --ink-rgb: 239 233 221;
+  --muted: #a9a194;
+  --faint: #6f685d;
+  --accent: #f06a2e;
+  --accent-ink: #161411;
+  --accent-soft: rgb(240 106 46 / .16);
+  --scrim: rgb(0 0 0 / .6);
 }

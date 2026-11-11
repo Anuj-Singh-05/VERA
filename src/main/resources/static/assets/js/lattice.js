@@ -50,7 +50,7 @@ function cellHtml(c, opts = {}) {
   const label = `${c.id}, ${c.state === 'critical' ? 'critical: ' : c.state === 'failed' ? 'failed: ' : ''}${what}`;
   const hl = opts.highlight && opts.highlight === c.id ? ' hl' : '';
   if (opts.mini) return `<span class="cell c-${c.state}${hl}" title="${esc(label)}"></span>`;
-  return `<a class="cell c-${c.state}${hl}" href="${caseHref(f)}" data-key="${esc(findingKey(f))}" title="${esc(label)}" aria-label="${esc(label)}"></a>`;
+  return `<a class="cell c-${c.state}${hl}" href="${caseHref(f)}" data-key="${esc(findingKey(f))}" aria-label="${esc(label)}"></a>`;
 }
 
 /** Cells only (used in the Overview lattice and the Batches rows). */
