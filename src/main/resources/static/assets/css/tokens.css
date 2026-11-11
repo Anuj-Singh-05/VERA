@@ -1,60 +1,63 @@
-/* VERA design tokens: the one source for colour, type, space, radius, elevation and motion.
-   Light is the default (projectors wash out dark UIs); dark is a designed theme, not an inversion. */
+/* VERA design tokens: "Cobalt Ledger" (see DESIGN_DIRECTION.md). One source for colour, type,
+   space, radius, elevation and motion. Light is the default for the working dashboard (projectors
+   wash out dark UIs); dark is a designed theme. `.on-ink` and `.on-cobalt` re-scope tokens for
+   bands drawn on the brand's dark and cobalt fields. */
 
 @font-face {
-  font-family: "Geist";
-  src: url("../fonts/geist-latin.woff2") format("woff2");
+  font-family: "Archivo";
+  src: url("../fonts/archivo-var-latin.woff2") format("woff2");
   font-weight: 100 900;
+  font-stretch: 62% 125%;
   font-display: swap;
 }
 @font-face {
-  font-family: "Geist Mono";
-  src: url("../fonts/geist-mono-latin.woff2") format("woff2");
-  font-weight: 100 900;
-  font-display: swap;
-}
-@font-face {
-  font-family: "Instrument Serif";
-  src: url("../fonts/instrument-serif-latin.woff2") format("woff2");
-  font-weight: 400;
+  font-family: "JetBrains Mono";
+  src: url("../fonts/jetbrains-mono-latin.woff2") format("woff2");
+  font-weight: 100 800;
   font-display: swap;
 }
 /* Metric-matched fallbacks so the swap to the real faces does not shift layout. */
-@font-face { font-family: "Geist Fallback"; src: local("Arial"); size-adjust: 104%; ascent-override: 91%; descent-override: 26%; line-gap-override: 0%; }
-@font-face { font-family: "Geist Mono Fallback"; src: local("Consolas"); size-adjust: 109%; ascent-override: 86%; descent-override: 25%; line-gap-override: 0%; }
-@font-face { font-family: "Instrument Serif Fallback"; src: local("Georgia"); size-adjust: 86%; ascent-override: 106%; descent-override: 28%; line-gap-override: 0%; }
+@font-face { font-family: "Archivo Fallback"; src: local("Arial"); size-adjust: 101%; ascent-override: 88%; descent-override: 21%; line-gap-override: 0%; }
+@font-face { font-family: "JetBrains Mono Fallback"; src: local("Consolas"); size-adjust: 110%; ascent-override: 93%; descent-override: 24%; line-gap-override: 0%; }
 
 :root {
   color-scheme: light;
 
-  /* Neutrals */
-  --ink: #0b1220;
-  --canvas: #f6f5f1;
-  --surface: #ffffff;
-  --raised: #fbfaf7;
-  --hairline: #e2e0d8;      /* table row rules only */
-  --rule: #8d93a0;          /* structural rules, control borders (3:1) */
-  --muted: #5b6472;
-  --accent: #2459f5;        /* interactive elements and focus only */
-  --accent-ink: #ffffff;
-  --accent-tint: #e9eefe;
-  --selection: #d6e0fd;
+  /* Brand */
+  --brand-ink: #070d24;      /* navy-black: hero, shell, verdict band */
+  --brand-ink-2: #0e1838;    /* raised on ink */
+  --cobalt: #2340ff;         /* the signature colour; white on it 6.5:1 */
+  --cobalt-deep: #1027c9;
+  --cobalt-lit: #6e7fff;     /* cobalt on ink, 5.6:1 */
+  --ice: #dce3ff;            /* lit edges, secondary text on cobalt (5.1:1) */
 
-  /* Status: certification meaning only, always paired with an icon and a label */
-  --certified: #1f6b47;  --certified-tint: #e6f2eb;
-  --review: #9a5b00;     --review-tint: #fbf0dc;
-  --blocked: #b42318;    --blocked-tint: #fbe7e4;
-  --incomplete: #565878; --incomplete-tint: #ecebf4;
-  --nodata: #6b7280;     --nodata-tint: #eef0f2;
-  --error: #6b7280;
+  /* Neutrals (working surfaces) */
+  --ink: #0b1230;
+  --canvas: #f4f5f8;
+  --surface: #ffffff;
+  --raised: #f9fafc;
+  --hairline: #e3e6ee;       /* table row rules only */
+  --rule: #8a93a8;           /* control borders, structural rules (3:1) */
+  --muted: #5a6378;          /* 5.5:1 on canvas */
+  --accent: var(--cobalt);   /* interactive elements and focus */
+  --accent-ink: #ffffff;
+  --accent-tint: #e8ecff;
+  --selection: #cfd8ff;
+
+  /* Status: certification meaning only, always with an icon and a label */
+  --certified: #1f6b47;  --certified-tint: #e3f2ea;  --certified-fill: #3aa774;
+  --review: #9a5b00;     --review-tint: #fbefd8;     --review-fill: #d9952a;
+  --blocked: #b42318;    --blocked-tint: #fbe5e2;    --blocked-fill: #d8473a;
+  --incomplete: #565878; --incomplete-tint: #ebebf3; --incomplete-fill: #8a8bb5;
+  --nodata: #6b7280;     --nodata-tint: #eef0f3;
 
   /* Type */
-  --sans: "Geist", "Geist Fallback", system-ui, "Segoe UI", Arial, sans-serif;
-  --mono: "Geist Mono", "Geist Mono Fallback", ui-monospace, Consolas, monospace;
-  --serif: "Instrument Serif", "Instrument Serif Fallback", Georgia, serif;
-  --fs-verdict: 40px;
-  --fs-numeral: 52px;
-  --fs-h2: 22px;
+  --sans: "Archivo", "Archivo Fallback", system-ui, "Segoe UI", Arial, sans-serif;
+  --mono: "JetBrains Mono", "JetBrains Mono Fallback", ui-monospace, Consolas, monospace;
+  --display-stretch: 118%;   /* expanded voice for headlines and numerals */
+  --fs-verdict: 44px;
+  --fs-numeral: 56px;
+  --fs-h2: 24px;
   --fs-h3: 18px;
   --fs-body: 16px;
   --fs-data: 15px;
@@ -62,52 +65,69 @@
   --fs-label: 13px;
 
   /* Space: 8px unit */
-  --s1: 4px; --s2: 8px; --s3: 12px; --s4: 16px; --s5: 24px; --s6: 32px; --s7: 48px; --s8: 64px; --s9: 96px;
+  --s1: 4px; --s2: 8px; --s3: 12px; --s4: 16px; --s5: 24px; --s6: 32px; --s7: 48px; --s8: 64px; --s9: 96px; --s10: 128px;
   --gutter: 24px;
   --side: clamp(16px, 3.4vw, 64px);
   --max: 1440px;
 
   /* Radius */
-  --r-control: 6px;
-  --r-panel: 10px;
+  --r-control: 8px;
+  --r-panel: 14px;
+  --r-pill: 999px;
 
-  /* Elevation: layers and hairlines, one shadow for overlays only */
-  --overlay-shadow: 0 24px 48px rgb(11 18 32 / 0.18), 0 2px 6px rgb(11 18 32 / 0.08);
-  --scrim: rgb(11 18 32 / 0.42);
+  /* Elevation: layers and hairlines; one soft shadow for floating surfaces */
+  --lift: 0 1px 2px rgb(11 18 48 / 0.06), 0 8px 24px rgb(11 18 48 / 0.06);
+  --overlay-shadow: 0 30px 60px rgb(7 13 36 / 0.28), 0 2px 8px rgb(7 13 36 / 0.12);
+  --scrim: rgb(7 13 36 / 0.5);
+
+  /* Texture: SVG grain, generated inline (no external file) */
+  --grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 .55 0'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)'/%3E%3C/svg%3E");
 
   /* Motion */
   --t-fast: 150ms;
-  --t-base: 220ms;
-  --t-slow: 320ms;
-  --ease-out: cubic-bezier(.2, .7, .2, 1);
-  --ease-in-out: cubic-bezier(.6, 0, .3, 1);
+  --t-base: 240ms;
+  --t-slow: 420ms;
+  --ease-out: cubic-bezier(.16, 1, .3, 1);
+  --ease-in-out: cubic-bezier(.65, 0, .35, 1);
 }
 
+/* Tokens re-scoped for content drawn on the ink field (shell, verdict band, landing hero). */
+.on-ink, :root[data-theme="dark"] {
+  --ink: #eef1fb;
+  --surface: #0e1838;
+  --raised: #142046;
+  --hairline: #22305a;
+  --rule: #4a5a8a;
+  --muted: #9aa6cc;
+  --accent: #6e7fff;
+  --accent-ink: #070d24;
+  --accent-tint: #18245a;
+  --selection: #2a3d8e;
+  --certified: #4fbf8a;  --certified-tint: #10301f;  --certified-fill: #3aa774;
+  --review: #e3a33b;     --review-tint: #33260c;     --review-fill: #d9952a;
+  --blocked: #f2776a;    --blocked-tint: #3a1714;    --blocked-fill: #d8473a;
+  --incomplete: #a6a3d9; --incomplete-tint: #23233d; --incomplete-fill: #8a8bb5;
+  --nodata: #9aa6cc;     --nodata-tint: #1a2448;
+  --lift: 0 1px 0 rgb(255 255 255 / 0.04) inset;
+}
 :root[data-theme="dark"] {
   color-scheme: dark;
-  --ink: #e7eaf0;
-  --canvas: #0a0f1a;
-  --surface: #111827;
-  --raised: #172033;
-  --hairline: #243047;
-  --rule: #5d6a82;
-  --muted: #97a1b2;
-  --accent: #7ea2ff;
-  --accent-ink: #0a0f1a;
-  --accent-tint: #1a2747;
-  --selection: #2a3d6e;
-  --certified: #4fbf8a;  --certified-tint: #12301f;
-  --review: #e3a33b;     --review-tint: #33260c;
-  --blocked: #f2776a;    --blocked-tint: #3a1714;
-  --incomplete: #a6a3d9; --incomplete-tint: #23233d;
-  --nodata: #97a1b2;     --nodata-tint: #1c2433;
-  --overlay-shadow: 0 24px 48px rgb(0 0 0 / 0.5);
-  --scrim: rgb(0 0 0 / 0.55);
+  --canvas: #070d24;
+  --overlay-shadow: 0 30px 60px rgb(0 0 0 / 0.55);
+  --scrim: rgb(0 0 0 / 0.6);
+}
+.on-cobalt {
+  --ink: #ffffff;
+  --muted: #dce3ff;
+  --hairline: rgb(255 255 255 / 0.22);
+  --rule: rgb(255 255 255 / 0.5);
+  --accent: #ffffff;
+  --accent-ink: #1027c9;
 }
 
 @media (max-width: 1279px) {
-  :root { --fs-verdict: 32px; --fs-numeral: 42px; }
+  :root { --fs-verdict: 36px; --fs-numeral: 46px; }
 }
 @media (max-width: 640px) {
-  :root { --fs-verdict: 27px; --fs-numeral: 34px; --gutter: 16px; }
+  :root { --fs-verdict: 28px; --fs-numeral: 36px; --gutter: 16px; }
 }
