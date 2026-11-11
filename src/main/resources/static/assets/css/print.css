@@ -1,0 +1,43 @@
+/* Print: a one-page executive summary of the Overview (verdict, lattice, figures, drift,
+   decisions, disclaimer). Light paper colours, no navigation, no interactive controls. */
+@page { size: A4 landscape; margin: 12mm; }
+
+:root, .on-ink, :root[data-theme="dark"] {
+  --ink: #0b1230; --canvas: #fff; --surface: #fff; --raised: #fff; --hairline: #d5d9e4; --rule: #8a93a8; --muted: #4a5368;
+  --certified: #1f6b47; --certified-tint: #e3f2ea; --certified-fill: #3aa774;
+  --review: #8a5200; --review-tint: #fbefd8; --review-fill: #d9952a;
+  --blocked: #a61f15; --blocked-tint: #fbe5e2; --blocked-fill: #d8473a;
+  --incomplete: #565878; --incomplete-tint: #ebebf3;
+}
+* { animation: none !important; transition: none !important; box-shadow: none !important; }
+html, body { background: #fff !important; color: var(--ink); font-size: 11pt; }
+.shell, .banner-fixture, .toast, .skip, .runbar, .demo-notes, .foot-links, .drawer-root, .rdlg,
+.btn, .decide, .notice-wrap, .lattice-h span, .drift .note a { display: none !important; }
+
+/* Mock disclaimer stays visible on paper */
+.banner-sim { background: #fff !important; color: var(--ink) !important; border: 1.5px solid var(--ink); border-radius: 6px; margin-bottom: 4mm; }
+.banner-sim .wrap { padding: 2mm 3mm; }
+
+.band.on-ink { background: #fff !important; color: var(--ink) !important; }
+.band.on-ink::before, .band.on-ink::after { display: none !important; }
+.wrap { max-width: none; padding: 0; }
+.verdict { grid-template-columns: 1fr 1fr; gap: 6mm; padding: 0 0 4mm; align-items: start; }
+.verdict h1, .page-band h1 { color: var(--ink) !important; font-size: 20pt; }
+.meta b { color: var(--ink); }
+.drift-line { display: none !important; }
+.lattice { background: #fff !important; border: 1px solid var(--hairline); backdrop-filter: none; padding: 3mm; }
+.lattice-h h2 { color: var(--ink); }
+.cell { --cs: 14px !important; print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+.chip, .rbar-fill, .segs span, .ticks i, .pend-b, .c-critical, .c-passed, .c-failed { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+.figs { margin-top: 0; border: 1px solid var(--hairline); break-inside: avoid; }
+.fig { padding: 3mm; }
+.fig .v { font-size: 22pt; }
+.fig .l { min-height: 0; font-size: 9pt; }
+.drift { break-inside: avoid; margin-top: 4mm; padding: 3mm; }
+.drift ul { font-size: 9.5pt; }
+.sec { margin-top: 4mm; }
+.dec-row { padding: 2mm 3mm; break-inside: avoid; }
+.dec-n { font-size: 14pt; }
+.foot { border-top: 1px solid var(--hairline); margin-top: 4mm; padding: 2mm 0 0; font-size: 8.5pt; }
+.foot-in { display: block; }
+a { color: inherit; text-decoration: none; }

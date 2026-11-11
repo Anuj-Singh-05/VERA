@@ -38,7 +38,7 @@ export const api = {
   runs: () => (FIXTURE ? fixture('runs') : request('/api/runs')),
   reviewLog: () => (FIXTURE ? fixture('reviewLog') : request('/api/review/log')),
   // A live run takes 4 to 5 minutes and cannot be cancelled: no client timeout.
-  run: () => (FIXTURE ? fixture('report') : request('/api/run', { method: 'POST' }, 0)),
+  run: () => (FIXTURE ? Promise.reject(new ApiError('Runs are disabled while fixture data is shown. Remove ?fixture= from the address to use the service.', 'http', 400)) : request('/api/run', { method: 'POST' }, 0)),
   review: (batch, approve, reviewer, reason) => {
     if (FIXTURE) return Promise.reject(new ApiError('Reviews are disabled with fixture data.', 'http', 400));
     const q = new URLSearchParams({ approve: String(approve), reviewer, reason });

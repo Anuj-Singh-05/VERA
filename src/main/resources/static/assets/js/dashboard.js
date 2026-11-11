@@ -1,17 +1,20 @@
-// VERA dashboard entry. Vanilla ES module: state, hash router, views.
+// VERA dashboard entry. Vanilla ES module: state, hash router, views. No framework, no build step.
 import { api, ApiError, FIXTURE } from './api.js';
 import { esc, pct, when, elapsed, word, pad2 } from './format.js';
 import { statusLabel, batchName, BATCHES, DIMENSIONS, dimensionLabel, ruleText } from './labels.js';
 import { RULES, isCritical, isApiError } from './rules.js';
 import { icon, statusIcon } from './icons.js';
 import { batchCells, cellsHtml, cellSummary, legendHtml, caseHref } from './lattice.js';
-import { initDrawer, openDrawer, closeDrawer, drawerOpen } from './drawer.js';
+import { initDrawer, openDrawer, closeDrawer } from './drawer.js';
 import { verdictOf, pendingBatches, isPending, consistencyProblems } from './verdict.js';
+import { openReview } from './review.js';
+import { runsView, runOverall, previousComparable } from './runs.js';
 
 const $ = (s, root = document) => root.querySelector(s);
+const reduced = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 const state = {
-  phase: 'loading',   // loading | ready | unreachable
+  phase: 'loading',     // loading | ready | unreachable
   report: null,
   runs: [],
   log: [],
@@ -20,15 +23,19 @@ const state = {
   runError: null,
   showAllDrift: false,
   view: 'overview',
-  filter: { dim: 'all', batch: 'all', sev: 'all' },
-  drawer: null,        // { caseId, dimension } while the evidence drawer is open
+  filter: { dim: 'all', batch: 'all', sev: 'all', rule: '' },
+  drawer: null,         // { caseId, dimension } while the evidence drawer is open
   focusBatch: null,
+  openRun: null,
+  changed: [],          // batches whose status just changed (animated once)
+  animatedRun: null,    // run number whose entrance animation already played
+  routed: false,
 };
 
-/* ---------- small helpers ---------- */
+/* ---------- helpers ---------- */
 
-export function chip(status, size = '') {
-  return `<span class="chip ${size}" data-s="${esc(status)}">${statusIcon(status)}<span>${esc(statusLabel(status))}</span></span>`;
+export function chip(status, size = '', extra = '') {
+  return `<span class="chip ${size} ${extra}" data-s="${esc(status)}">${statusIcon(status)}<span>${esc(statusLabel(status))}</span></span>`;
 }
 
 function toast(msg) {
@@ -36,10 +43,11 @@ function toast(msg) {
   t.textContent = msg;
   t.classList.add('show');
   clearTimeout(toast.timer);
-  toast.timer = setTimeout(() => t.classList.remove('show'), 4200);
+  toast.timer = setTimeout(() => t.classList.remove('show'), 4600);
 }
 
 const hasRun = () => !!(state.report && state.report.batches && state.report.batches.length);
+const rateTone = (v) => (v == null ? 'na' : v >= RULES.CERTIFIED_AT ? 'good' : v >= RULES.REVIEW_AT ? 'warn' : 'bad');
 
 function summary(r) {
   const s = { tested: 0, total: 0, critical: 0, errors: 0, weighted: 0, counts: {} };
@@ -63,20 +71,23 @@ function summary(r) {
 async function loadAll() {
   try {
     const report = await api.report();
-    const [runs, log] = await Promise.all([
-      api.runs().catch(() => state.runs),
-      api.reviewLog().catch(() => state.log),
-    ]);
+    const [runs, log] = await Promise.all([api.runs().catch(() => state.runs), api.reviewLog().catch(() => state.log)]);
     Object.assign(state, { report, runs: runs || [], log: log || [], phase: 'ready' });
   } catch (e) {
     state.phase = 'unreachable';
-    state.loadError = e;
   }
   render();
 }
 
+async function refreshAfterReview() {
+  const report = await api.report();
+  const log = await api.reviewLog().catch(() => state.log);
+  state.report = report;
+  state.log = log || [];
+}
+
 async function runSuite() {
-  if (state.running) return;
+  if (state.running || state.phase === 'unreachable') return;
   const before = state.report;
   state.running = true;
   state.runStarted = Date.now();
@@ -92,11 +103,11 @@ async function runSuite() {
     state.phase = 'ready';
     state.changed = changedBatches(before, report);
     const n = state.changed.length;
-    toast(`Run #${report.runNumber || ''} complete. ${n ? `${word(n)} batch${n === 1 ? '' : 'es'} changed status.` : 'No batch changed status.'}`);
+    toast(`Run #${report.runNumber || ''} complete. ${n ? `${word(n)} batch${n === 1 ? '' : 'es'} changed status since the previous run.` : 'No batch changed status since the previous run.'}`);
   } catch (e) {
     state.runError = e instanceof ApiError && e.kind === 'unreachable'
-      ? 'The run did not finish because the VERA service stopped answering. Your previous report is unchanged.'
-      : `The run did not finish (${e.message}). Your previous report is unchanged.`;
+      ? 'The VERA service stopped answering before the run finished. Your previous report is unchanged.'
+      : `The service reported a problem (${e.message}). Your previous report is unchanged.`;
   } finally {
     state.running = false;
     setRunning(false);
@@ -116,12 +127,29 @@ function changedBatches(before, after) {
   return after.batches.filter((b) => prev.has(b.batch) && prev.get(b.batch) !== b.finalStatus).map((b) => b.batch);
 }
 
+async function review(batchNo, approve, opener) {
+  const b = state.report && state.report.batches.find((x) => x.batch === batchNo);
+  if (!b || !isPending(state.report, batchNo) || state.running) return;
+  const saved = await openReview(b, approve, async (name, note) => {
+    await api.review(batchNo, approve, name, note);
+    await refreshAfterReview();
+  });
+  if (saved) {
+    state.changed = [batchNo];
+    render();
+    toast(`Batch ${batchNo} ${approve ? 'approved: now Certified' : 'rejected: now Blocked'} for run #${state.report.runNumber}. The decision is in the review log.`);
+    const again = document.querySelector(`#batch-${batchNo} .brow-status, [data-pend="${batchNo}"]`);
+    (again || $('#main')).focus?.({ preventScroll: false });
+  } else if (opener && document.contains(opener)) opener.focus();
+}
+
 /* ---------- shell ---------- */
 
 function setRunning(on) {
   const btn = $('#runBtn');
   clearInterval(setRunning.timer);
   $('#runbar').hidden = !on;
+  document.body.classList.toggle('is-running', on);
   if (on) {
     btn.setAttribute('aria-busy', 'true');
     const tick = () => { btn.querySelector('.run-label').textContent = `Running · ${elapsed(Date.now() - state.runStarted)}`; };
@@ -141,7 +169,7 @@ function renderShell() {
   const agent = $('#agentChip');
   if (r && state.phase === 'ready') {
     agent.hidden = false;
-    agent.textContent = mock ? 'mock · scripted' : `${r.provider} · ${r.model}${r.promptVersion && r.promptVersion !== 'n/a' ? ` · ${r.promptVersion}` : ''}`;
+    agent.textContent = mock ? 'mock agent · simulated' : `${r.provider} · ${r.model}${r.promptVersion && r.promptVersion !== 'n/a' ? ` · ${r.promptVersion}` : ''}`;
     agent.title = `Agent under test: ${r.provider}, model ${r.model}, prompt ${r.promptVersion}`;
   } else agent.hidden = true;
 
@@ -158,14 +186,17 @@ function renderShell() {
     if (a.dataset.view === state.view) a.setAttribute('aria-current', 'page');
     else a.removeAttribute('aria-current');
   });
+  const runBtn = $('#runBtn');
+  runBtn.disabled = state.phase === 'unreachable' || (state.phase === 'loading' && !state.running);
+  runBtn.title = state.phase === 'unreachable' ? 'The VERA service is not reachable' : 'Send 36 synthetic claims through the agent and score them';
 }
 
-/* ---------- notices ---------- */
+/* ---------- shared pieces ---------- */
 
 function noticeHtml() {
   if (state.running) {
     return `<div class="notice notice-run" role="status">${icon('play')}<div><h2>Running 36 claims through the agent</h2>
-      <p>A mock run takes a few seconds. A live run takes about 4 to 5 minutes and cannot be cancelled. Keep this tab open.</p></div></div>`;
+      <p>A mock run takes a few seconds. A live run takes about 4 to 5 minutes and cannot be cancelled. Keep this tab open; the elapsed time is on the Run button.</p></div></div>`;
   }
   if (state.runError) {
     return `<div class="notice notice-error" role="alert">${icon('alert')}<div><h2>The run did not finish</h2><p>${esc(state.runError)}</p></div>
@@ -174,95 +205,122 @@ function noticeHtml() {
   return '';
 }
 
+function rateBar(v, label) {
+  const w = v == null ? 0 : Math.max(0, Math.min(1, v)) * 100;
+  return `<span class="rbar ${rateTone(v)}" role="img" aria-label="${esc(label || 'Pass rate')} ${esc(pct(v))}; review from 70%, certified from 90%">
+    <span class="rbar-fill" style="--w:${w.toFixed(1)}%"></span>
+    <span class="rbar-mark" style="left:${RULES.REVIEW_AT * 100}%"></span>
+    <span class="rbar-mark" style="left:${RULES.CERTIFIED_AT * 100}%"></span>
+  </span><span class="rbar-scale" aria-hidden="true"><span style="left:70%">70</span><span style="left:90%">90</span></span>`;
+}
+
+function pageBand(title, lede, extra = '') {
+  return `<section class="band on-ink page-band"><div class="wrap"><div class="pb-in">
+    <div><h1>${esc(title)}</h1><p>${lede}</p></div>${extra}</div></div></section>`;
+}
+
+function consistencyNotice(r) {
+  const problems = consistencyProblems(r);
+  if (!problems.length) return '';
+  console.error('VERA report consistency problems:', problems);
+  return `<div class="notice notice-error" role="alert">${icon('alert')}<div><h2>The report contradicts itself</h2>
+    <p>${problems.map(esc).join(' ')} The Approve/Reject buttons follow the server's list.</p></div></div>`;
+}
+
 /* ---------- views ---------- */
 
 function skeleton() {
-  return `<div aria-busy="true" aria-label="Loading the latest report">
-    <div class="sk sk-verdict"></div><div class="sk sk-line"></div><div class="sk sk-figs"></div></div>`;
+  return `<section class="band on-ink verdict-band" aria-busy="true" aria-label="Loading the latest report"><div class="wrap verdict">
+    <div><div class="sk sk-chip"></div><div class="sk sk-verdict"></div><div class="sk sk-verdict short"></div><div class="sk sk-line"></div></div>
+    <div class="sk sk-lattice"></div></div></section>
+    <div class="wrap"><div class="sk sk-figs"></div></div>`;
 }
 
 function unreachable() {
-  return `<div class="notice notice-error" role="alert" style="margin-top:48px">${icon('alert')}<div>
+  return `<div class="wrap"><div class="notice notice-error big" role="alert">${icon('alert')}<div>
     <h2>VERA can't reach its service at this address</h2>
-    <p>The dashboard needs the VERA server running on this machine. Start it with <code class="mono">mvn spring-boot:run</code> in the project folder, then try again.</p></div>
-    <div class="actions"><button class="btn btn-s" type="button" data-act="reload">${icon('retry')}Try again</button></div></div>`;
+    <p>The dashboard needs the VERA server running on this machine. Start it from the project folder, then try again:</p>
+    <pre class="cmd">$env:VERA_HISTORY_DIR="$env:TEMP\\vera-test"; mvn spring-boot:run</pre></div>
+    <div class="actions"><button class="btn btn-primary btn-s" type="button" data-act="reload">${icon('retry')}Try again</button></div></div></div>`;
+}
+
+function neutralLattice() {
+  const rows = [8, 8, 8, 8, 4].map((n, i) => `<div class="lrow"><span class="lrow-n">B${i + 1}</span><div class="lcells">${'<span class="cell c-idle"></span>'.repeat(n)}</div></div>`).join('');
+  return `<div class="lattice panel idle" aria-hidden="true"><div class="lrows">${rows}</div></div>`;
 }
 
 function startState() {
   const last = state.runs.length ? state.runs[state.runs.length - 1] : null;
-  return `<section class="start" aria-labelledby="startH">
-    <div>
-      <h1 id="startH">No run in this server session yet.</h1>
-      <p>Run the suite to send 36 synthetic claims through the agent and apply four checks: coverage limit, evidence grounding, prompt injection and personal data.${last ? ` The last saved run is #${last.runNumber}, ${esc(when(last.timestamp))}.` : ''}</p>
-      <button class="btn btn-primary" type="button" data-act="run" ${state.running ? 'disabled' : ''}>${icon('play')}Run assurance suite</button>
-    </div>
-    <div class="start-facts">
-      <div><b>36</b><span>synthetic claims in five batches</span></div>
-      <div><b>4</b><span>numeric checks on every reply</span></div>
-      <div><b>90%</b><span>to certify a batch, with no critical failure</span></div>
-      <div><b>${state.runs.length}</b><span>run${state.runs.length === 1 ? '' : 's'} saved in history</span></div>
-    </div>
-  </section>`;
-}
-
-const rateTone = (v) => (v == null ? 'na' : v >= RULES.CERTIFIED_AT ? 'good' : v >= RULES.REVIEW_AT ? 'warn' : 'bad');
-
-/** Horizontal pass-rate bar with the 70% and 90% thresholds marked. */
-function rateBar(v, label) {
-  const w = v == null ? 0 : Math.max(0, Math.min(1, v)) * 100;
-  return `<span class="rbar ${rateTone(v)}" role="img" aria-label="${esc(label || 'Pass rate')} ${esc(pct(v))}; review at 70%, certified at 90%">
-    <span class="rbar-fill" style="width:${w.toFixed(1)}%"></span>
-    <span class="rbar-mark" style="left:${RULES.REVIEW_AT * 100}%"></span>
-    <span class="rbar-mark" style="left:${RULES.CERTIFIED_AT * 100}%"></span>
-  </span>`;
-}
-
-function verdictBlock(r) {
-  const v = verdictOf(r);
-  const s = summary(r);
-  const order = ['CERTIFIED', 'NEEDS_HUMAN_REVIEW', 'BLOCKED', 'INCOMPLETE', 'NO_DATA'];
-  const tally = order.filter((k) => s.counts[k]).map((k) => `<span class="chip" data-s="${k}">${statusIcon(k)}<span>${s.counts[k]} ${esc(statusLabel(k).toLowerCase())}</span></span>`).join('');
-  const mock = r.provider === 'mock';
-  return `<section class="verdict" aria-labelledby="verdictH">
+  return `<section class="band on-ink verdict-band start-band"><div class="wrap verdict">
     <div class="verdict-text">
-      ${chip(v.status, 'chip-l')}
-      <h1 id="verdictH">${esc(v.text)}</h1>
-      <div class="tally" aria-label="Batches by status">${tally}</div>
-      <div class="meta">
-        ${r.runNumber ? `<span>Run <b>#${r.runNumber}</b></span>` : ''}
-        <span>Agent <b>${esc(mock ? 'mock (scripted)' : r.provider)}</b></span>
-        <span>Model <b>${esc(r.model)}</b></span>
-        ${mock ? '' : `<span>Prompt <b>${esc(r.promptVersion)}</b></span>`}
-        ${r.timestamp ? `<span>Issued <b>${esc(when(r.timestamp))}</b></span>` : ''}
-      </div>
+      <h1>No run in this server session yet.</h1>
+      <p class="lede">Run the suite to send 36 synthetic claims through the agent and apply four checks: coverage limit, evidence grounding, prompt injection and personal data.${last ? ` The last saved run is #${last.runNumber}, ${esc(when(last.timestamp))}; see Runs.` : ''}</p>
+      <button class="btn btn-primary btn-l" type="button" data-act="run" ${state.running ? 'disabled' : ''}>${icon('play')}Run assurance suite</button>
     </div>
-    ${latticePanel(r)}
-  </section>`;
+    ${neutralLattice()}
+  </div></section>
+  <div class="wrap"><div class="start-facts">
+    <div><b class="num">36</b><span>synthetic claims in five batches</span></div>
+    <div><b class="num">4</b><span>numeric checks on every reply</span></div>
+    <div><b class="num">90%</b><span>to certify a batch, with no critical failure</span></div>
+    <div><b class="num">${state.runs.length}</b><span>run${state.runs.length === 1 ? '' : 's'} saved in history</span></div>
+  </div></div>`;
 }
 
-/** The Case Lattice: one row per batch, one cell per claim. */
-function latticePanel(r) {
-  const rows = r.batches.map((b) => {
+function latticePanel(r, animate) {
+  const rows = r.batches.map((b, bi) => {
     const m = batchCells(b, r.failedCases);
-    return `<div class="lrow">
+    let i = bi * 8;
+    const cells = cellsHtml(m).replace(/class="cell /g, () => `style="--i:${i++}" class="cell `);
+    return `<div class="lrow${state.changed.includes(b.batch) ? ' changed' : ''}">
       <a class="lrow-n" href="#batches?b=${b.batch}" title="${esc(batchName(b.batch))}">B${b.batch}</a>
-      <div class="lcells" role="group" aria-label="${esc(cellSummary(b, m))}">${cellsHtml(m)}</div>
+      <div class="lcells" role="group" aria-label="${esc(cellSummary(b, m))}">${cells}</div>
       <span class="lrow-rate num ${rateTone(b.overallPassRate)}">${esc(pct(b.overallPassRate))}</span>
-      ${chip(b.finalStatus)}
+      ${chip(b.finalStatus, '', state.changed.includes(b.batch) ? 'changed' : '')}
     </div>`;
   }).join('');
   const total = r.batches.reduce((a, b) => a + b.casesTotal, 0);
-  return `<section class="lattice panel" aria-labelledby="latticeH">
-    <div class="lattice-h"><h2 id="latticeH">Case lattice</h2><span class="muted">${total} claims · select a red cell for its evidence</span></div>
+  return `<section class="lattice panel${animate ? ' enter' : ''}" aria-labelledby="latticeH" data-lattice>
+    <div class="lattice-h"><h2 id="latticeH">Case lattice</h2><span>${total} claims · arrow keys move between failed cells</span></div>
     <div class="lrows">${rows}</div>
     ${legendHtml()}
   </section>`;
 }
 
+function verdictBand(r, animate) {
+  const v = verdictOf(r);
+  const s = summary(r);
+  const order = ['CERTIFIED', 'NEEDS_HUMAN_REVIEW', 'BLOCKED', 'INCOMPLETE', 'NO_DATA'];
+  const tally = order.filter((k) => s.counts[k]).map((k) => `<span class="chip" data-s="${k}">${statusIcon(k)}<span>${s.counts[k]} ${esc(statusLabel(k).toLowerCase())}</span></span>`).join('');
+  const mock = r.provider === 'mock';
+  const alerts = r.driftAlerts || [];
+  const prev = alerts.length ? (alerts[0].match(/run #(\d+)/) || [])[1] : null;
+  return `<section class="band on-ink verdict-band${animate ? ' enter' : ''}" aria-labelledby="verdictH"><div class="wrap verdict">
+    <div class="verdict-text">
+      ${chip(v.status, 'chip-l')}
+      <h1 id="verdictH">${esc(v.text)}</h1>
+      <div class="tally" aria-label="Batches by final status">${tally}</div>
+      <div class="meta">
+        ${r.runNumber ? `<span>Run <b>#${r.runNumber}</b></span>` : ''}
+        <span>Agent <b>${esc(mock ? 'mock (simulated)' : r.provider)}</b></span>
+        <span>Model <b>${esc(r.model)}</b></span>
+        ${mock ? '' : `<span>Prompt <b>${esc(r.promptVersion)}</b></span>`}
+        ${r.timestamp ? `<span>Issued <b>${esc(when(r.timestamp))}</b></span>` : ''}
+      </div>
+      ${alerts.length ? `<a class="drift-line" href="#drift">${icon('alert')}<span><b>${alerts.length} drift alert${alerts.length === 1 ? '' : 's'}</b> against run #${esc(prev || '?')}, same agent, model and prompt</span>${icon('arrow')}</a>` : ''}
+    </div>
+    ${latticePanel(r, animate)}
+  </div></section>`;
+}
+
 function ticks(total, filled, hatched) {
   let h = '';
-  for (let i = 0; i < total; i++) h += `<i class="${i < filled ? 'on' : i < filled + hatched ? 'err' : ''}"></i>`;
+  for (let i = 0; i < total; i++) h += `<i class="${i < filled ? 'on' : i < filled + hatched ? 'err' : ''}" style="--i:${i}"></i>`;
   return `<span class="ticks" aria-hidden="true">${h}</span>`;
+}
+
+function countAttr(value, fmt) {
+  return `data-count-to="${value}" data-fmt="${fmt}"`;
 }
 
 function figures(r) {
@@ -272,65 +330,81 @@ function figures(r) {
   const byRule = {};
   crit.forEach((f) => { byRule[f.ruleViolated] = (byRule[f.ruleViolated] || 0) + 1; });
   const ruleParts = Object.entries(byRule).sort((a, b) => b[1] - a[1]);
-  const shortRule = { coverage_limit_exceeded: 'over the limit', followed_injected_instruction: 'hidden instruction followed', amount_not_supported_by_documents: 'amount not in documents' };
+  const shortRule = { coverage_limit_exceeded: 'over the policy limit', followed_injected_instruction: 'hidden instruction followed', amount_not_supported_by_documents: 'amount not in any document' };
   const critViz = s.critical
-    ? `<span class="segs" aria-hidden="true">${ruleParts.map(([k, n]) => `<span style="flex:${n}"></span>`).join('')}</span>
+    ? `<span class="segs" aria-hidden="true">${ruleParts.map(([, n]) => `<span style="flex:${n}"></span>`).join('')}</span>
        <ul class="seg-l">${ruleParts.map(([k, n]) => `<li><a href="#findings?rule=${encodeURIComponent(k)}"><b class="num">${n}</b> ${esc(shortRule[k] || ruleText(k))}</a></li>`).join('')}</ul>`
     : '<span class="fig-none">None in this run</span>';
-  const pending = s.pendingList;
   return `<section class="figs" aria-label="Key figures">
-    <div class="fig"><div class="v num">${s.tested}<small>/${s.total}</small></div><div class="l">Claims scored</div>
+    <div class="fig"><div class="v num"><span ${countAttr(s.tested, 'int')}>${s.tested}</span><small>/${s.total}</small></div><div class="l">Claims scored</div>
       ${ticks(s.total, s.tested, s.total - s.tested)}</div>
-    <div class="fig ${tone}"><div class="v num">${pct(s.overall)}</div><div class="l">Overall pass rate, weighted by claims scored</div>
-      ${rateBar(s.overall, 'Overall pass rate')}<span class="rbar-scale" aria-hidden="true"><span style="left:70%">70</span><span style="left:90%">90</span></span></div>
-    <div class="fig ${s.critical ? 'bad' : 'good'}"><div class="v num">${s.critical}</div><div class="l">Critical failures: could cause a wrong payout</div>${critViz}</div>
-    <div class="fig ${s.errors ? 'warn' : ''}"><div class="v num">${s.errors}</div><div class="l">API errors: model calls that failed</div>
-      ${s.errors ? ticks(s.total, s.errors, 0) : '<span class="fig-none">None in this run</span>'}</div>
-    <div class="fig ${s.pending ? 'warn' : 'good'}"><div class="v num">${s.pending}</div><div class="l">Batches awaiting a person's decision</div>
-      ${pending.length ? `<span class="pend">${pending.map((n) => `<a class="pend-b" href="#batches?b=${n}">B${n}</a>`).join('')}</span>` : '<span class="fig-none">Nothing waiting</span>'}</div>
+    <div class="fig ${tone}"><div class="v num"><span ${countAttr(s.overall == null ? '' : (s.overall * 100).toFixed(1), 'pct')}>${pct(s.overall)}</span></div><div class="l">Overall pass rate, weighted by claims scored</div>
+      ${rateBar(s.overall, 'Overall pass rate')}</div>
+    <div class="fig ${s.critical ? 'bad' : 'good'}"><div class="v num"><span ${countAttr(s.critical, 'int')}>${s.critical}</span></div><div class="l">Critical failures: could cause a wrong payout</div>${critViz}</div>
+    <div class="fig ${s.errors ? 'warn' : ''}"><div class="v num"><span ${countAttr(s.errors, 'int')}>${s.errors}</span></div><div class="l">API errors: model calls that failed and were not scored</div>
+      ${s.errors ? ticks(s.total, 0, s.errors) : '<span class="fig-none">None in this run</span>'}</div>
+    <div class="fig ${s.pending ? 'warn' : 'good'}"><div class="v num"><span ${countAttr(s.pending, 'int')}>${s.pending}</span></div><div class="l">Batches waiting for a person to approve or reject</div>
+      ${s.pending ? `<span class="pend">${s.pendingList.map((n) => `<a class="pend-b" href="#batches?b=${n}">B${n}</a>`).join('')}</span>` : '<span class="fig-none">Nothing waiting</span>'}</div>
   </section>`;
 }
 
-function driftStrip(r) {
+function driftSection(r) {
   const alerts = r.driftAlerts || [];
   if (!alerts.length) return '';
-  const shown = state.showAllDrift ? alerts : alerts.slice(0, 2);
-  const prev = (alerts[0].match(/run #(\d+)/) || [])[1];
-  return `<section class="drift" role="alert" aria-labelledby="driftH">
+  const shown = state.showAllDrift ? alerts : alerts.slice(0, 3);
+  return `<section class="drift" id="drift" aria-labelledby="driftH" tabindex="-1">
     ${icon('alert')}
     <div>
-      <h2 id="driftH">${alerts.length} drift alert${alerts.length === 1 ? '' : 's'}: worse than run #${esc(prev || '?')} with the same agent, model and prompt</h2>
+      <h2 id="driftH">Drift: this run is worse than the previous run with the same agent, model and prompt</h2>
       <ul>${shown.map((a) => `<li>${esc(a)}</li>`).join('')}</ul>
-      ${alerts.length > 2 && !state.showAllDrift ? `<p class="note">${alerts.length - 2} more.</p>` : ''}
+      <p class="note">Compared only with runs of the same setup; switching prompt v1 to v2 is calibration, not drift. <a href="#runs">See all runs</a></p>
     </div>
-    ${alerts.length > 2 ? `<button class="btn btn-s" type="button" data-act="toggle-drift" aria-expanded="${state.showAllDrift}">${state.showAllDrift ? 'Show fewer' : `Show all ${alerts.length}`}</button>` : ''}
+    ${alerts.length > 3 ? `<button class="btn btn-s" type="button" data-act="toggle-drift" aria-expanded="${state.showAllDrift}">${state.showAllDrift ? 'Show fewer' : `Show all ${alerts.length} alerts`}</button>` : ''}
   </section>`;
 }
 
-/** Visible warning if the report breaks the decision rule (verdict.js); never hidden. */
-function consistencyNotice(r) {
-  const problems = consistencyProblems(r);
-  if (!problems.length) return '';
-  console.error('VERA report consistency problems:', problems);
-  return `<div class="notice notice-error" role="alert">${icon('alert')}<div><h2>The report contradicts itself</h2>
-    <p>${problems.map(esc).join(' ')} The Approve/Reject buttons follow the server's list.</p></div></div>`;
+function decisionList(r) {
+  const pend = pendingBatches(r);
+  if (!pend.length) return '';
+  const rows = pend.map((n) => {
+    const b = r.batches.find((x) => x.batch === n);
+    if (!b) return '';
+    return `<li class="dec-row" data-pend="${n}" tabindex="-1">
+      <span class="dec-n num">B${n}</span>
+      <span class="dec-name"><b>${esc(batchName(n))}</b><span>${b.criticalFailures} critical · ${b.casesTested}/${b.casesTotal} scored</span></span>
+      <span class="dec-bar">${rateBar(b.overallPassRate, `Batch ${n}`)}</span>
+      <span class="dec-rate num ${rateTone(b.overallPassRate)}">${esc(pct(b.overallPassRate))}</span>
+      ${chip(b.finalStatus)}
+      ${decisionButtons(n)}
+    </li>`;
+  }).join('');
+  return `<section class="sec decisions" aria-labelledby="decH">
+    <div class="sec-h"><h2 id="decH">Waiting for your decision</h2><p>Anything not certified goes to a person. Approving certifies the batch for this run; rejecting blocks it. Both are logged.</p></div>
+    <ul class="dec-list">${rows}</ul></section>`;
 }
 
-function overview() {
+function decisionButtons(n) {
+  const dis = state.running ? 'disabled' : '';
+  return `<span class="decide">
+    <button class="btn btn-s btn-approve" type="button" data-review="${n}" data-approve="true" ${dis}>${icon('certified')}Approve</button>
+    <button class="btn btn-s btn-reject" type="button" data-review="${n}" data-approve="false" ${dis}>${icon('blocked')}Reject</button></span>`;
+}
+
+function overview(animate) {
   if (!hasRun()) return startState();
   const r = state.report;
-  return consistencyNotice(r) + verdictBlock(r) + figures(r) + driftStrip(r);
+  return verdictBand(r, animate) + `<div class="wrap">${consistencyNotice(r)}${figures(r)}${driftSection(r)}${decisionList(r)}</div>`;
 }
 
 /* ----- Batches ----- */
 
 function decisionCell(b, r) {
-  if (isPending(r, b.batch)) {
-    return `<div class="decide">
-      <button class="btn btn-s btn-approve" type="button" data-review="${b.batch}" data-approve="true">Approve</button>
-      <button class="btn btn-s btn-reject" type="button" data-review="${b.batch}" data-approve="false">Reject</button></div>`;
+  if (isPending(r, b.batch)) return decisionButtons(b.batch);
+  if (b.humanOverridden) {
+    const entry = state.log.slice().reverse().find((x) => x.batch === b.batch && x.runNumber === r.runNumber);
+    return `<span class="signed">${icon('certified')}Signed off${entry ? ` by ${esc(entry.reviewer)}` : ' by a reviewer'}</span>`;
   }
-  if (b.humanOverridden) return '<span class="muted">Signed off by a reviewer</span>';
+  if (b.finalStatus === 'INCOMPLETE' || b.finalStatus === 'NO_DATA') return '<span class="muted">Re-run needed</span>';
   return '<span class="muted">No decision needed</span>';
 }
 
@@ -341,20 +415,23 @@ function dimLine(b) {
 
 function whyNotScored(b) {
   if (b.finalStatus === 'NO_DATA') return `No claim in this batch was scored: every model call failed (${b.errorCount} API error${b.errorCount === 1 ? '' : 's'}). Re-run the suite.`;
-  if (b.finalStatus === 'INCOMPLETE') return `${b.casesTested} of ${b.casesTotal} claims scored; ${Math.round(RULES.MIN_TESTED_SHARE * 100)}% must be scored before a status is given. The model call failed for the rest. Re-run the suite.`;
+  if (b.finalStatus === 'INCOMPLETE') return `${b.casesTested} of ${b.casesTotal} claims scored; at least ${Math.round(RULES.MIN_TESTED_SHARE * 100)}% must be scored before a status is given. The model call failed for the rest. Re-run the suite.`;
   return '';
 }
 
-function batches() {
+function batches(animate) {
   if (!hasRun()) return startState();
   const r = state.report;
+  const s = summary(r);
   const rows = r.batches.map((b) => {
     const m = batchCells(b, r.failedCases);
     const meta = BATCHES[b.batch] || { name: `Batch ${b.batch}`, desc: '' };
-    const auto = b.humanOverridden || b.autoStatus !== b.finalStatus
-      ? `<span class="auto">Automatic result: ${esc(statusLabel(b.autoStatus))}${b.humanOverridden ? ' · changed by a reviewer' : ''}</span>` : '';
+    const changed = state.changed.includes(b.batch);
+    const auto = b.humanOverridden
+      ? `<span class="auto">Automatic result: ${esc(statusLabel(b.autoStatus))} · signed off by a reviewer</span>`
+      : (b.autoStatus !== b.finalStatus ? `<span class="auto">Automatic result: ${esc(statusLabel(b.autoStatus))}</span>` : '');
     const why = whyNotScored(b);
-    return `<article class="brow${state.focusBatch === b.batch ? ' focus' : ''}${(state.changed || []).includes(b.batch) ? ' changed' : ''}" id="batch-${b.batch}" aria-labelledby="bn-${b.batch}">
+    return `<article class="brow${state.focusBatch === b.batch ? ' focus' : ''}${changed ? ' changed' : ''}" id="batch-${b.batch}" aria-labelledby="bn-${b.batch}">
       <div class="brow-no num" aria-hidden="true">${b.batch}</div>
       <div class="brow-name">
         <h3 id="bn-${b.batch}"><span class="sr-only">Batch ${b.batch}: </span>${esc(meta.name)}</h3>
@@ -364,9 +441,8 @@ function batches() {
       <div class="brow-rate">
         <div class="brow-rate-v num ${rateTone(b.overallPassRate)}">${esc(pct(b.overallPassRate))}</div>
         ${rateBar(b.overallPassRate, `Batch ${b.batch} overall pass rate`)}
-        <span class="rbar-scale" aria-hidden="true"><span style="left:70%">70</span><span style="left:90%">90</span></span>
       </div>
-      <div class="brow-status">${chip(b.finalStatus)}${auto}</div>
+      <div class="brow-status" tabindex="-1">${chip(b.finalStatus, 'chip-l', changed ? 'changed' : '')}${auto}</div>
       <div class="brow-dec">${decisionCell(b, r)}</div>
       <div class="brow-detail">
         <div class="lcells" role="group" aria-label="${esc(cellSummary(b, m))}">${cellsHtml(m)}</div>
@@ -375,12 +451,12 @@ function batches() {
       </div>
     </article>`;
   }).join('');
-  return `<section class="sec" aria-labelledby="batchesH">
-    <div class="sec-h"><h2 id="batchesH">Batches</h2><p>Certified at 90% or more with no critical failure and at least 75% of claims scored. A person decides the rest.</p></div>
+  const lede = `${s.counts.CERTIFIED || 0} of ${r.batches.length} certified${s.pending ? ` · ${s.pending} waiting for a decision` : ''}. Certified at 90% or more with no critical failure and at least 75% of claims scored; a person decides the rest.`;
+  return pageBand('Batches', esc(lede)) + `<div class="wrap"><section class="sec blist-sec${animate ? ' enter' : ''}" aria-label="Batches">
     <div class="bhead" aria-hidden="true"><span></span><span>Batch</span><span>Overall pass rate</span><span>Status</span><span>Decision</span></div>
     <div class="blist">${rows}</div>
     ${legendHtml()}
-  </section>`;
+  </section></div>`;
 }
 
 /* ----- Findings ----- */
@@ -421,55 +497,114 @@ function findings() {
     ${filterGroup('dim', 'Check', dims.map((d) => [d, d === 'all' ? 'All' : dimensionLabel(d)]), state.filter.dim, dimCounts)}
     ${filterGroup('batch', 'Batch', batchOpts, state.filter.batch)}
     ${filterGroup('sev', 'Severity', [['all', 'All'], ['critical', 'Critical'], ['standard', 'Standard']], state.filter.sev, { critical: count(isCritical), standard: count((x) => !isCritical(x) && !isApiError(x)) })}
-    ${state.filter.rule ? `<button type="button" class="fbtn" data-filter="rule" data-value="" aria-pressed="true">${esc(ruleText(state.filter.rule))} ${icon('close')}</button>` : ''}
+    ${state.filter.rule ? `<button type="button" class="fbtn" data-filter="rule" data-value="" aria-pressed="true" aria-label="Remove filter: ${esc(ruleText(state.filter.rule))}">${esc(ruleText(state.filter.rule))} ${icon('close')}</button>` : ''}
   </div>`;
   let body;
   if (!all.length) body = `<p class="empty">No failed checks in ${r.runNumber ? `run #${r.runNumber}` : 'this run'}. Every scored check passed.</p>`;
   else if (!shown.length) body = '<p class="empty">No findings match these filters.</p>';
   else {
-    body = `<table class="ftable">
+    body = `<div class="tscroll"><table class="ftable">
       <thead><tr><th scope="col">No.</th><th scope="col">Case</th><th scope="col">Batch</th><th scope="col">Check</th><th scope="col">What happened</th><th scope="col">Severity</th></tr></thead>
       <tbody>${shown.map((f) => {
         const sev = isApiError(f) ? '<span class="sev sev-error">API error</span>' : isCritical(f) ? '<span class="sev sev-crit">Critical</span>' : '<span class="sev">Standard</span>';
         return `<tr data-href="${caseHref(f)}">
           <td class="num muted">F-${pad2(index.get(`${f.caseId}/${f.dimension}`))}</td>
-          <td><a class="mono" href="${caseHref(f)}">${esc(f.caseId)}</a></td>
+          <td><a class="mono case-link" href="${caseHref(f)}">${esc(f.caseId)}</a></td>
           <td class="num">${esc(f.batch)}</td>
           <td>${esc(dimensionLabel(f.dimension))}</td>
           <td>${esc(ruleText(f.ruleViolated))}</td>
           <td>${sev}</td></tr>`;
-      }).join('')}</tbody></table>`;
+      }).join('')}</tbody></table></div>`;
   }
-  return `<section class="sec" aria-labelledby="findingsH">
-    <div class="sec-h"><h2 id="findingsH">Findings</h2><p>Every failed check, critical first. Open one for the rule, the expected and actual values, and the agent's raw output.</p></div>
+  const crit = count(isCritical);
+  return pageBand('Findings', esc(`${all.length} failed check${all.length === 1 ? '' : 's'} in run #${r.runNumber || '—'}, ${crit} critical. Open one for the rule, the values compared and the agent's raw output.`)) +
+    `<div class="wrap"><section class="sec" aria-label="Findings">
     ${filters}
     <p class="fcount" aria-live="polite">${shown.length} of ${all.length} shown</p>
     ${body}
-  </section>`;
+  </section></div>`;
 }
 
-const VIEWS = {
-  overview,
-  batches,
-  findings,
-  runs: () => '',
-  reviews: () => '',
-};
+/* ----- Runs ----- */
+
+function runs() {
+  const n = state.runs.length;
+  const latest = n ? state.runs[n - 1] : null;
+  const prev = latest ? previousComparable(state.runs, latest) : null;
+  const lede = n
+    ? `${n} saved run${n === 1 ? '' : 's'}. Latest #${latest.runNumber}: ${pct(runOverall(latest))} overall${prev ? `, against ${pct(runOverall(prev))} in run #${prev.runNumber} of the same setup` : ''}.`
+    : 'No runs saved yet.';
+  return pageBand('Runs', esc(lede)) + `<div class="wrap">${runsView(state.runs, state.openRun)}</div>`;
+}
+
+/* ----- Reviews ----- */
+
+function reviews() {
+  const r = state.report;
+  const pend = hasRun() ? pendingBatches(r) : [];
+  const pendHtml = pend.length
+    ? `<div class="notice">${icon('review')}<div><h2>${pend.length} batch${pend.length === 1 ? '' : 'es'} waiting for a decision in run #${r.runNumber}</h2>
+       <p>${pend.map((n) => `<a href="#batches?b=${n}">Batch ${n}, ${esc(batchName(n))}</a>`).join(' · ')}</p></div></div>` : '';
+  const log = state.log.slice().reverse();
+  const table = log.length ? `<div class="tscroll"><table class="dtable log-t">
+      <thead><tr><th scope="col">Time (UTC)</th><th scope="col">Run</th><th scope="col">Batch</th><th scope="col">Decision</th><th scope="col">Reviewer</th><th scope="col">Note</th></tr></thead>
+      <tbody>${log.map((x) => `<tr>
+        <td class="num">${esc(String(x.timestamp || '').replace('T', ' ').substring(0, 19))}</td>
+        <td class="num">#${esc(x.runNumber)}</td>
+        <td><span class="num">B${esc(x.batch)}</span> ${esc(batchName(x.batch))}</td>
+        <td>${x.approved ? chip('CERTIFIED', '', '').replace('Certified', 'Approved') : chip('BLOCKED', '', '').replace('Blocked', 'Rejected')}</td>
+        <td>${esc(x.reviewer)}</td>
+        <td>${x.reason ? esc(x.reason) : '<span class="muted">—</span>'}</td></tr>`).join('')}</tbody></table></div>`
+    : '<p class="empty">No decisions recorded yet. Approve or reject a batch on Batches or the Overview; each decision is logged here with who, why and when.</p>';
+  const a = state.log.filter((x) => x.approved).length;
+  return pageBand('Reviews', esc(`${state.log.length} decision${state.log.length === 1 ? '' : 's'} in the audit log: ${a} approved, ${state.log.length - a} rejected. A decision applies to the run it was made on.`)) +
+    `<div class="wrap"><section class="sec" aria-label="Review log">${pendHtml}${table}</section></div>`;
+}
+
+const VIEWS = { overview, batches, findings, runs, reviews };
+
+/* ---------- render ---------- */
 
 function render() {
   renderShell();
-  $('#notice').innerHTML = state.phase === 'ready' ? noticeHtml() : '';
+  const r = state.report;
+  const animate = hasRun() && !reduced() && state.animatedRun !== `${r.runNumber}|${r.timestamp}` && state.phase === 'ready';
   let html;
   if (state.phase === 'loading') html = skeleton();
   else if (state.phase === 'unreachable') html = unreachable();
-  else html = (VIEWS[state.view] || overview)();
-  $('#view').innerHTML = html;
+  else html = (VIEWS[state.view] || overview)(animate);
+  const notice = state.phase === 'ready' ? noticeHtml() : '';
+  $('#view').innerHTML = (notice ? `<div class="wrap notice-wrap">${notice}</div>` : '') + html;
+  if (animate && (state.view === 'overview' || state.view === 'batches')) {
+    state.animatedRun = `${r.runNumber}|${r.timestamp}`;
+    countUp();
+  }
+  document.body.classList.toggle('is-running', state.running);
   syncDrawer();
   if (state.focusBatch) {
     const el = document.getElementById(`batch-${state.focusBatch}`);
-    if (el) el.scrollIntoView({ block: 'center', behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
+    if (el) el.scrollIntoView({ block: 'center', behavior: reduced() ? 'auto' : 'smooth' });
   }
   state.changed = [];
+}
+
+/** One-time count-up of headline figures. The final value is already in the DOM (screenshots,
+ *  no-JS and reduced motion all show it); this only animates from zero to it. */
+function countUp() {
+  const els = document.querySelectorAll('[data-count-to]');
+  const t0 = performance.now();
+  const dur = 900;
+  const targets = [...els].map((el) => ({ el, to: parseFloat(el.dataset.countTo), fmt: el.dataset.fmt, final: el.textContent }))
+    .filter((x) => !Number.isNaN(x.to));
+  const step = (now) => {
+    const k = Math.min(1, (now - t0) / dur);
+    const e = 1 - Math.pow(1 - k, 4);
+    for (const x of targets) {
+      x.el.textContent = k >= 1 ? x.final : x.fmt === 'pct' ? `${(x.to * e).toFixed(1)}%` : String(Math.round(x.to * e));
+    }
+    if (k < 1) requestAnimationFrame(step);
+  };
+  requestAnimationFrame(step);
 }
 
 /* ---------- evidence drawer ---------- */
@@ -483,18 +618,17 @@ function syncDrawer() {
   openDrawer(f, list, { ...state.drawer, runNumber: r && r.runNumber });
 }
 
-function closeFromDrawer() {
-  state.drawer = null;
-  const target = `#${state.view}${state.view === 'findings' ? filterQuery() : ''}`;
-  history.replaceState(null, '', target);
-  closeDrawer();
-}
-
 function filterQuery() {
   const q = new URLSearchParams();
   for (const [k, v] of Object.entries(state.filter)) if (v && v !== 'all') q.set(k, v);
   const s = q.toString();
   return s ? `?${s}` : '';
+}
+
+function closeFromDrawer() {
+  state.drawer = null;
+  history.replaceState(null, '', `#${state.view}${state.view === 'findings' ? filterQuery() : ''}`);
+  closeDrawer();
 }
 
 /* ---------- routing ---------- */
@@ -507,6 +641,14 @@ function route() {
   if (parts[0] === 'case') {
     state.drawer = { caseId: parts[1] || '', dimension: parts[2] || '' };
     if (!state.routed) state.view = 'findings'; // opened straight from a deep link
+  } else if (parts[0] === 'drift') {
+    state.drawer = null;
+    state.view = 'overview';
+    state.routed = true;
+    render();
+    const d = document.getElementById('drift');
+    if (d) { d.scrollIntoView({ block: 'center', behavior: reduced() ? 'auto' : 'smooth' }); d.focus({ preventScroll: true }); }
+    return;
   } else {
     state.drawer = null;
     state.view = VIEWS[parts[0]] ? parts[0] : 'overview';
@@ -515,10 +657,14 @@ function route() {
       state.filter = { dim: q.get('dim') || 'all', batch: q.get('batch') || 'all', sev: q.get('sev') || 'all', rule: q.get('rule') || '' };
     }
     state.focusBatch = state.view === 'batches' && q.get('b') ? Number(q.get('b')) : null;
+    state.openRun = state.view === 'runs' && parts[1] ? Number(parts[1]) : null;
   }
   state.routed = true;
   render();
-  if (prev !== state.view && !state.drawer) $('#main').focus({ preventScroll: true });
+  if (prev !== state.view && !state.drawer) {
+    $('#main').focus({ preventScroll: true });
+    if (!state.focusBatch) window.scrollTo({ top: 0 });
+  }
 }
 
 /* ---------- events ---------- */
@@ -533,6 +679,8 @@ document.addEventListener('click', (ev) => {
     if (again) again.focus();
     return;
   }
+  const rv = ev.target.closest('[data-review]');
+  if (rv) { review(Number(rv.dataset.review), rv.dataset.approve === 'true', rv); return; }
   const row = ev.target.closest('tr[data-href]');
   if (row && !ev.target.closest('a')) { location.hash = row.dataset.href; return; }
   const a = ev.target.closest('[data-act]');
@@ -540,8 +688,24 @@ document.addEventListener('click', (ev) => {
   const act = a.dataset.act;
   if (act === 'run' || act === 'retry-run') runSuite();
   else if (act === 'reload') { state.phase = 'loading'; render(); loadAll(); }
-  else if (act === 'toggle-drift') { state.showAllDrift = !state.showAllDrift; render(); }
+  else if (act === 'toggle-drift') { state.showAllDrift = !state.showAllDrift; render(); $('[data-act="toggle-drift"]')?.focus(); }
 });
+
+// Lattice keyboard: arrow keys move between the failed (linked) cells of the Overview lattice.
+document.addEventListener('keydown', (ev) => {
+  const cell = ev.target.closest && ev.target.closest('[data-lattice] a.cell');
+  if (!cell || !['ArrowRight', 'ArrowLeft', 'ArrowDown', 'ArrowUp', 'Home', 'End'].includes(ev.key)) return;
+  const all = [...document.querySelectorAll('[data-lattice] a.cell')];
+  const i = all.indexOf(cell);
+  let j = i;
+  if (ev.key === 'ArrowRight' || ev.key === 'ArrowDown') j = Math.min(all.length - 1, i + 1);
+  if (ev.key === 'ArrowLeft' || ev.key === 'ArrowUp') j = Math.max(0, i - 1);
+  if (ev.key === 'Home') j = 0;
+  if (ev.key === 'End') j = all.length - 1;
+  ev.preventDefault();
+  all[j].focus();
+});
+
 $('#runBtn').addEventListener('click', runSuite);
 $('#printBtn').innerHTML = icon('print');
 $('#printBtn').addEventListener('click', () => window.print());
@@ -566,4 +730,4 @@ window.addEventListener('hashchange', route);
 route();
 loadAll();
 
-export { state, isCritical };
+export { state };

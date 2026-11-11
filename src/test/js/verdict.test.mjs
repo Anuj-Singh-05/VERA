@@ -50,6 +50,11 @@ test('a rejected batch is reported as rejected, not pending', () => {
   assert.match(v.text, /One rejected by a reviewer\./);
 });
 
+test('nothing certified reads as a sentence', () => {
+  const r = { batches: [1, 2, 3, 4, 5].map((n) => batch(n, 'BLOCKED')), pendingHumanReview: [1, 2, 3, 4, 5] };
+  assert.match(verdictOf(r).text, /^None of the five batches is certified\. Five need a person's decision: five blocked\.$/);
+});
+
 test('all certified', () => {
   const r = { batches: [1, 2, 3, 4, 5].map((n) => batch(n, 'CERTIFIED')), pendingHumanReview: [] };
   const v = verdictOf(r);
