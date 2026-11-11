@@ -10,7 +10,12 @@
    Type, all self-hosted under the SIL Open Font License (see ../fonts/OFL-*.txt):
    - Display: Archivo variable at 800-900 weight, tracked tight (the heavy, tight grotesque).
    - UI: Archivo at 400-600, normal width (the quiet grotesque).
-   - Mono: JetBrains Mono, for IDs, amounts and small-caps labels. */
+   - Serif: Instrument Serif Italic, for subheads and pull-quotes only.
+   - Mono: JetBrains Mono, for IDs, amounts and small-caps labels.
+   - Wordmark: Archivo at its widest (125%), weight 900, tracked open: its own treatment.
+
+   Supporting colours (sky, butter) are for section bands, tab accents and illustration only,
+   never for status. Status stays shape-coded. */
 
 @font-face {
   font-family: "Archivo";
@@ -23,6 +28,13 @@
   font-family: "JetBrains Mono";
   src: url("../fonts/jetbrains-mono-latin.woff2") format("woff2");
   font-weight: 100 800;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Instrument Serif";
+  src: url("../fonts/instrument-serif-italic.ttf") format("truetype");
+  font-weight: 400;
+  font-style: italic;
   font-display: swap;
 }
 @font-face { font-family: "Archivo Fallback"; src: local("Arial"); size-adjust: 101%; ascent-override: 88%; descent-override: 21%; line-gap-override: 0%; }
@@ -47,12 +59,21 @@
   --accent-ink: #171512;
   --accent-soft: rgb(226 85 27 / .12);
 
+  /* Two supporting colours: bands, tab accents, illustration. Never status. */
+  --sky: #86aec4;            /* dusty sky blue */
+  --sky-tint: #dfe8e9;       /* sky on cream, for bands */
+  --butter: #f0cf6e;         /* butter yellow */
+  --butter-tint: #f4e3b0;    /* butter on cream, for bands */
+  --peach-tint: #f1d9c6;     /* orange on cream, for bands */
+  --tab: var(--accent);      /* the current dashboard tab's accent */
+
   /* Hatching for "needs review" (drawn in ink, never coloured) */
   --hatch: repeating-linear-gradient(135deg, var(--ink) 0 1.5px, transparent 1.5px 5px);
 
   /* Type */
   --display: "Archivo", "Archivo Fallback", system-ui, "Segoe UI", Arial, sans-serif;
   --sans: "Archivo", "Archivo Fallback", system-ui, "Segoe UI", Arial, sans-serif;
+  --serif: "Instrument Serif", Georgia, "Times New Roman", serif;
   --mono: "JetBrains Mono", "JetBrains Mono Fallback", ui-monospace, Consolas, monospace;
   --display-weight: 860;
   --display-track: -.045em;
@@ -91,5 +112,10 @@
   --accent: #f06a2e;
   --accent-ink: #161411;
   --accent-soft: rgb(240 106 46 / .16);
+  --sky: #8fb6cc;
+  --sky-tint: #1d2427;
+  --butter: #ecc96a;
+  --butter-tint: #29241a;
+  --peach-tint: #2b1d16;
   --scrim: rgb(0 0 0 / .6);
 }

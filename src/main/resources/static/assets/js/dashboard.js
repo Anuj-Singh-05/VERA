@@ -163,6 +163,7 @@ function setRunning(on) {
 
 function renderShell() {
   const r = state.report;
+  document.body.dataset.view = state.view;
   const mock = r && r.provider === 'mock';
   $('#simBanner').hidden = !(mock && state.phase === 'ready');
   $('#fixtureBanner').hidden = !FIXTURE;
@@ -288,7 +289,7 @@ function latticePanel(r, animate) {
     const m = batchCells(b, r.failedCases);
     let i = bi * 8;
     const cells = cellsHtml(m).replace(/class="cell /g, () => `style="--i:${i++}" class="cell `);
-    return `<div class="lrow${state.changed.includes(b.batch) ? ' changed' : ''}">
+    return `<div class="lrow${state.changed.includes(b.batch) ? ' changed' : ''}" data-b="${b.batch}">
       <a class="lrow-n" href="#batches?b=${b.batch}">B${b.batch}</a>
       <span class="lrow-name">${esc(batchName(b.batch))}</span>
       <div class="lcells" role="group" aria-label="${esc(cellSummary(b, m))}">${cells}</div>
@@ -747,6 +748,7 @@ function showTip(cell) {
   if (!f) return;
   const more = (r.failedCases || []).filter((x) => x.caseId === f.caseId).length - 1;
   const sev = isApiError(f) ? 'API error' : isCritical(f) ? 'Critical' : 'Failed';
+  tip.dataset.kind = 'cell';
   tip.innerHTML = `<p class="ct-h"><b>${esc(f.caseId)}</b><span>B${esc(f.batch)} · ${esc(dimensionLabel(f.dimension))}</span><i>${sev}</i></p>
     <p class="ct-rule">${esc(ruleText(f.ruleViolated))}</p>
     ${f.expectedVsActual ? `<p class="ct-ev"><span>Expected vs actual</span>${esc(String(f.expectedVsActual).slice(0, 140))}</p>` : ''}
@@ -769,6 +771,59 @@ document.addEventListener('focusout', (e) => { if (e.target.closest && e.target.
 addEventListener('scroll', hideTip, { passive: true });
 addEventListener('hashchange', hideTip);
 document.addEventListener('keydown', (e) => { if (e.key === 'Escape') hideTip(); });
+
+// Linked highlights: legend dims other states; a waiting batch lights its lattice row;
+// a Runs point lights the same run in the timeline and table, with a crosshair and a tooltip.
+document.addEventListener('pointerover', (e) => {
+  const t = e.target.closest ? e.target : null;
+  if (!t) return;
+  const k = t.closest('.legend [data-k]');
+  if (k) document.body.dataset.dim = k.dataset.k; else if (document.body.dataset.dim) delete document.body.dataset.dim;
+  document.querySelectorAll('.lrow.hot').forEach((r) => r.classList.remove('hot'));
+  const dec = t.closest('[data-pend], .breg tr[id^="batch-"]');
+  if (dec) {
+    const n = dec.dataset.pend || dec.id.replace('batch-', '');
+    document.querySelector(`.lrow[data-b="${n}"]`)?.classList.add('hot');
+  }
+  const pt = t.closest('.pt');
+  document.querySelectorAll('.runs-t tr.hot, .tl-run.hot, .pt.on').forEach((r) => r.classList.remove('hot', 'on'));
+  document.querySelectorAll('.xh').forEach((l) => l.setAttribute('visibility', 'hidden'));
+  const tl = t.closest('.tl-run');
+  if (pt || tl) {
+    const run = (pt || tl).dataset.run;
+    document.querySelector(`.runs-t tr[data-run="${run}"]`)?.classList.add('hot');
+    document.querySelector(`.tl-run[data-run="${run}"]`)?.classList.add('hot');
+    document.querySelectorAll(`.pt[data-run="${run}"]`).forEach((p) => p.classList.add('on'));
+  }
+  if (pt) showPointTip(pt);
+  else if (!t.closest('a.cell') && tip.dataset.kind === 'pt') hideTip();
+});
+document.addEventListener('focusin', (e) => { const pt = e.target.closest && e.target.closest('.pt'); if (pt) showPointTip(pt); });
+function showPointTip(pt) {
+  const svg = pt.ownerSVGElement;
+  const xh = svg && svg.querySelector('.xh');
+  if (xh) { xh.setAttribute('x1', pt.getAttribute('cx')); xh.setAttribute('x2', pt.getAttribute('cx')); xh.setAttribute('visibility', 'visible'); }
+  tip.dataset.kind = 'pt';
+  tip.innerHTML = `<p class="ct-h"><b>Run #${esc(pt.dataset.run)}</b><span>B${esc(pt.dataset.batch)}</span><i>${esc(pt.dataset.st)}</i></p>
+    <p class="ct-rule">${esc(pt.dataset.rate)} overall</p><p class="ct-ev"><span>When · setup</span>${esc(pt.dataset.when)} · ${esc(pt.dataset.cfg)}</p>`;
+  tip.hidden = false;
+  const b = pt.getBoundingClientRect();
+  const w = tip.offsetWidth, h = tip.offsetHeight;
+  const x = Math.min(innerWidth - w - 8, Math.max(8, b.left + b.width / 2 - 24));
+  let y = b.top - h - 12;
+  tip.classList.toggle('below', y < 64);
+  if (y < 64) y = b.bottom + 12;
+  tip.style.left = `${x}px`; tip.style.top = `${y}px`;
+  tip.style.setProperty('--ax', `${Math.max(10, b.left + b.width / 2 - x)}px`);
+}
+// Clicking a batch row marks its claims: the row's lattice cells get the highlight ring.
+document.addEventListener('click', (e) => {
+  const tr = e.target.closest && e.target.closest('.breg tbody tr');
+  if (!tr || e.target.closest('a,button')) return;
+  const on = !tr.classList.contains('marked');
+  document.querySelectorAll('.breg tr.marked').forEach((r) => r.classList.remove('marked'));
+  tr.classList.toggle('marked', on);
+});
 
 $('#runBtn').addEventListener('click', runSuite);
 $('#printBtn').innerHTML = icon('print');

@@ -73,10 +73,10 @@ export function cellSummary(b, m) {
 
 export function legendHtml() {
   return `<div class="legend" aria-label="Lattice key">
-    <span><i class="cell c-passed"></i>Passed</span>
-    <span><i class="cell c-failed"></i>Failed a check</span>
-    <span><i class="cell c-critical"></i>Critical: possible wrong payout</span>
-    <span><i class="cell c-error"></i>Not tested (API error)</span>
-    <span><i class="cell c-unknown"></i>Unknown</span>
+    <span data-k="passed"><i class="cell c-passed"></i>Passed</span>
+    <span data-k="failed"><i class="cell c-failed"></i>Failed a check</span>
+    <span data-k="critical"><i class="cell c-critical"></i>Critical: possible wrong payout</span>
+    <span data-k="error"><i class="cell c-error"></i>Not tested (API error)</span>
+    <span data-k="unknown"><i class="cell c-unknown"></i>Unknown</span>
   </div>`;
 }

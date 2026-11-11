@@ -27,8 +27,8 @@ const miniChip = (b) => `<span class="mchip" data-s="${esc(b.finalStatus || b.au
  *  prompt or model shows as a break (calibration, not drift). */
 function chart(runs) {
   const batches = [...new Set(runs.flatMap((r) => (r.batches || []).map((b) => b.batch)))].sort((a, b) => a - b);
-  const W = 260, H = 176, P = { l: 30, r: 12, t: 12, b: 24 };
-  const x = (i) => P.l + (runs.length === 1 ? (W - P.l - P.r) / 2 : (i * (W - P.l - P.r)) / (runs.length - 1));
+  const W = 380, H = 220, P = { l: 46, r: 14, t: 14, b: 30 }, IN = 16;
+  const x = (i) => P.l + IN + (runs.length === 1 ? (W - P.l - P.r - 2 * IN) / 2 : (i * (W - P.l - P.r - 2 * IN)) / (runs.length - 1));
   const y = (v) => P.t + (1 - v) * (H - P.t - P.b);
   const panels = batches.map((n) => {
     let path = '';
@@ -39,7 +39,7 @@ function chart(runs) {
       const prev = i > 0 ? runs[i - 1] : null;
       const joined = prev && sameConfig(prev, r) && (prev.batches || []).some((q) => q.batch === n);
       path += `${joined ? 'L' : 'M'}${x(i).toFixed(1)},${y(b.overallPassRate).toFixed(1)}`;
-      pts += `<circle cx="${x(i).toFixed(1)}" cy="${y(b.overallPassRate).toFixed(1)}" r="4.5" class="pt" data-s="${esc(b.autoStatus)}"><title>Run #${r.runNumber}, ${esc(configLabel(r))}: ${esc(pct(b.overallPassRate))}, ${esc(statusLabel(b.autoStatus))}</title></circle>`;
+      pts += `<circle cx="${x(i).toFixed(1)}" cy="${y(b.overallPassRate).toFixed(1)}" r="5" class="pt" data-s="${esc(b.autoStatus)}" data-run="${r.runNumber}" data-batch="${n}" data-rate="${esc(pct(b.overallPassRate))}" data-when="${esc(when(r.timestamp))}" data-cfg="${esc(configLabel(r))}" data-st="${esc(statusLabel(b.autoStatus))}" tabindex="0" aria-label="Run #${r.runNumber}, ${esc(configLabel(r))}: ${esc(pct(b.overallPassRate))}, ${esc(statusLabel(b.autoStatus))}"></circle>`;
     });
     const ticks = runs.map((r, i) => `<text x="${x(i).toFixed(1)}" y="${H - 6}" class="tx" text-anchor="middle">#${r.runNumber}</text>`).join('');
     return `<figure class="rc-panel">
@@ -48,9 +48,12 @@ function chart(runs) {
         <rect x="${P.l}" y="${y(1)}" width="${W - P.l - P.r}" height="${y(RULES.CERTIFIED_AT) - y(1)}" class="band band-c"/>
         <rect x="${P.l}" y="${y(RULES.CERTIFIED_AT)}" width="${W - P.l - P.r}" height="${y(RULES.REVIEW_AT) - y(RULES.CERTIFIED_AT)}" class="band band-r"/>
         <rect x="${P.l}" y="${y(RULES.REVIEW_AT)}" width="${W - P.l - P.r}" height="${y(0) - y(RULES.REVIEW_AT)}" class="band band-b"/>
-        <text x="${P.l - 6}" y="${y(RULES.CERTIFIED_AT) + 4}" class="ty" text-anchor="end">90</text>
-        <text x="${P.l - 6}" y="${y(RULES.REVIEW_AT) + 4}" class="ty" text-anchor="end">70</text>
-        <text x="${P.l - 6}" y="${y(0) + 4}" class="ty" text-anchor="end">0</text>
+        <text x="${P.l - 12}" y="${y(0.5) + 4}" class="ty" text-anchor="end">50</text>
+        <text x="${P.l - 12}" y="${y(RULES.CERTIFIED_AT) + 4}" class="ty" text-anchor="end">90</text>
+        <text x="${P.l - 12}" y="${y(RULES.REVIEW_AT) + 4}" class="ty" text-anchor="end">70</text>
+        <text x="${P.l - 12}" y="${y(0) + 4}" class="ty" text-anchor="end">0</text>
+        <line class="axis" x1="${P.l}" x2="${P.l}" y1="${P.t}" y2="${H - P.b}"/>
+        <line class="xh" x1="0" x2="0" y1="${P.t}" y2="${H - P.b}" visibility="hidden"/>
         <path d="${path}" class="ln"/>${pts}${ticks}
       </svg></figure>`;
   }).join('');
@@ -95,6 +98,17 @@ function runDetail(runs, run) {
   </section>`;
 }
 
+/** Run timeline: one stamp per saved run, in order; a break marks a change of provider, model or prompt. */
+function timeline(runs) {
+  const items = runs.map((r, i) => {
+    const brk = i > 0 && !sameConfig(runs[i - 1], r);
+    const o = runOverall(r);
+    return `${brk ? '<span class="tl-break" title="Setup changed: calibration, not drift">setup changed</span>' : ''}<a class="tl-run" href="#runs/${r.runNumber}" data-run="${r.runNumber}" style="--h:${o == null ? 0 : Math.round(o * 100)}%">
+      <span class="tl-bar" aria-hidden="true"></span><b class="num">#${r.runNumber}</b><span class="num">${esc(pct(o))}</span>${(r.driftAlerts || []).length ? '<i class="tl-drift">drift</i>' : ''}</a>`;
+  }).join('');
+  return `<nav class="timeline" aria-label="Run timeline, overall pass rate per run">${items}</nav>`;
+}
+
 /**
  * @param {Array} runs history, oldest first
  * @param {number|null} openRun run number to expand
@@ -111,7 +125,7 @@ export function runsView(runs, openRun) {
     const d = prev ? delta(o, runOverall(prev)) : '<span class="muted">first of its setup</span>';
     const alerts = (r.driftAlerts || []).length;
     const isLatest = r.runNumber === latest.runNumber;
-    return `<tr class="${openRun === r.runNumber ? 'open' : ''}${isLatest ? ' latest' : ''}" data-href="#runs/${r.runNumber}">
+    return `<tr class="${openRun === r.runNumber ? 'open' : ''}${isLatest ? ' latest' : ''}" data-href="#runs/${r.runNumber}" data-run="${r.runNumber}">
       <td data-l="Run"><a class="num strong" href="#runs/${r.runNumber}">#${r.runNumber}</a>${isLatest ? '<span class="latest-tag">Latest</span>' : ''}</td>
       <td class="num" data-l="Time (UTC)">${esc(when(r.timestamp))}</td>
       <td data-l="Agent">${esc(r.provider)}${r.provider === 'mock' ? '<span class="tag-sim">simulated</span>' : ''}</td>
@@ -126,6 +140,7 @@ export function runsView(runs, openRun) {
   const open = openRun ? sorted.find((r) => r.runNumber === openRun) : null;
   return `<section class="sec" aria-labelledby="runsChartH">
       <div class="sec-h"><h2 id="runsChartH">Pass rate by batch, run after run</h2><p>Bands: certified 90%+, review 70–90%, blocked below 70%.</p></div>
+      ${timeline(sorted)}
       ${chart(sorted)}
     </section>
     ${open ? runDetail(sorted, open) : (openRun ? `<div class="notice">${icon('alert')}<div><h2>Run #${esc(openRun)} is not in the saved history.</h2></div></div>` : '')}
