@@ -38,6 +38,21 @@ html, body { background: #fff !important; color: var(--ink); font-size: 11pt; }
 .sec { margin-top: 4mm; }
 .dec-row { padding: 2mm 3mm; break-inside: avoid; }
 .dec-n { font-size: 14pt; }
-.foot { border-top: 1px solid var(--hairline); margin-top: 4mm; padding: 2mm 0 0; font-size: 8.5pt; }
+html, body { height: auto !important; min-height: 0 !important; overflow: visible !important; }
+body { zoom: .82; }
+.lrows { gap: 3px !important; }
+.lattice-h { margin-bottom: 2mm !important; }
+.legend { margin-top: 2mm !important; padding-top: 1mm !important; }
+.tally, .meta { margin-top: 2mm !important; }
+.drift ul { gap: 0 !important; }
+.toast, .drawer-root, dialog { position: static !important; display: none !important; }
+main { padding: 0 !important; min-height: 0 !important; }
+.drift .note { display: none !important; }
+.verdict { padding-bottom: 2mm !important; }
+.banner-sim { margin-bottom: 2mm; }
+.verdict h1 { font-size: 18pt; }
+.c-failed { box-shadow: inset 0 0 0 2px var(--blocked-fill) !important; }
+.c-error, .c-unknown { box-shadow: inset 0 0 0 1px var(--rule) !important; }
+.foot { border-top: 1px solid var(--hairline); margin-top: 2mm; padding: 1mm 0 0; font-size: 8pt; }
 .foot-in { display: block; }
 a { color: inherit; text-decoration: none; }

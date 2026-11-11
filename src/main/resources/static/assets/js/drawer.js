@@ -5,7 +5,10 @@ import { ruleText, ruleStatement, dimensionLabel, batchName } from './labels.js'
 import { isCritical, isApiError } from './rules.js';
 import { icon } from './icons.js';
 
-let root, panel, opener = null, onCloseCb = null, current = null;
+let root, panel, opener = null, onCloseCb = null, current = null, returnKey = null;
+
+/** Records which control (by data-key) opened the drawer, for when the page re-renders under it. */
+export function setReturnKey(k) { if (k) returnKey = k; }
 
 export function initDrawer(onClose) {
   onCloseCb = onClose;
@@ -133,8 +136,15 @@ export function closeDrawer() {
   const done = () => { root.hidden = true; };
   if (matchMedia('(prefers-reduced-motion: reduce)').matches) done();
   else setTimeout(done, 260);
-  if (opener && document.contains(opener)) opener.focus();
+  // The view may have re-rendered while the drawer was open: find the same control again by its key.
+  const k = (opener && opener.dataset && opener.dataset.key) || returnKey;
+  if ((!opener || !document.contains(opener) || opener === document.body) && k) {
+    opener = document.querySelector(`[data-key="${CSS.escape(k)}"]`) || opener;
+  }
+  if (opener && document.contains(opener) && opener !== document.body) opener.focus();
+  else document.getElementById('main')?.focus();
   opener = null;
+  returnKey = null;
   current = null;
 }
 
