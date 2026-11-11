@@ -112,7 +112,7 @@ fetch('assets/data/recorded-results.json').then((r) => r.json()).then((d) => {
     return `<div class="rc-row"><div class="rc-name"><b>Batch ${b.batch}</b><span>${esc(NAMES[b.batch] || '')}</span><span class="rc-ev">Evidence ${esc(Math.round(b.evidence * 100))}% → ${esc(Math.round(c.evidence * 100))}%</span></div>
       <div class="rc-bars">${bar('rc-v1', b.overall, b.status, 'baseline v1')}${bar('rc-v2', c.overall, c.status, 'calibrated v2')}</div></div>`;
   }).join('');
-  chart.innerHTML = `<div class="rc-legend"><span><i style="background:linear-gradient(90deg,#8a93a8,#c3cbec)"></i>${esc(d.baseline.label)}, run #${d.baseline.runs.join(', #')}</span><span><i style="background:linear-gradient(90deg,#2340ff,#6e7fff)"></i>${esc(d.calibrated.label)}, runs #${d.calibrated.runs.join(' and #')}</span><span>Marks at 70% and 90%</span></div>${rows}`;
+  chart.innerHTML = `<div class="rc-legend"><span><i class="k1"></i>${esc(d.baseline.label)}, run #${d.baseline.runs.join(', #')}</span><span><i class="k2"></i>${esc(d.calibrated.label)}, runs #${d.calibrated.runs.join(' and #')}</span><span>Marks at 70% and 90%</span></div>${rows}`;
   $('#caveats').innerHTML = d.caveats.map((c) => `<li>${esc(c)}</li>`).join('');
 }).catch(() => { /* keep the noscript-style text already in the page */ });
 
@@ -122,106 +122,52 @@ if (close) {
   $$('.cl-row i', close).forEach((el, i) => el.style.setProperty('--i', i));
   new IntersectionObserver(([en]) => close.classList.toggle('in-view', en.isIntersecting), { threshold: 0.3 }).observe(close);
 }
-if (close && !reduced) {
-  close.addEventListener('pointermove', (e) => {
-    const r = close.getBoundingClientRect();
-    close.style.setProperty('--mx', `${((e.clientX - r.left) / r.width) * 100}%`);
-    close.style.setProperty('--my', `${((e.clientY - r.top) / r.height) * 100}%`);
-  });
+
+/* ---------- Hero: the case lattice as a flat hairline grid ----------
+   36 cells in five rows (8, 8, 8, 8, 4), the shape of VERA's test set. Illustrative only: the four
+   marked cells are the cases named in this page's own copy, and the callouts name them. */
+const ROWS = [8, 8, 8, 8, 4];
+const TARGETS = new Set(['1-6', '2-1', '4-2', '5-4']);
+function fillLattice(el, withIndex) {
+  let html = '', i = 0;
+  ROWS.forEach((n, r) => { for (let c = 1; c <= n; c++) html += `<i class="${TARGETS.has(`${r + 1}-${c}`) ? 't' : ''}" style="--i:${withIndex ? i : 0}"></i>`, i++; });
+  el.innerHTML = html;
+}
+const hl = $('#heroLattice');
+if (hl) {
+  fillLattice($('.hl-grid', hl), true);
+  setTimeout(() => hl.classList.add('on'), reduced ? 0 : 900);
 }
 
-/* ---------- Hero: isometric case lattice on canvas ----------
-   36 neutral blocks in five rows (8, 8, 8, 8, 4), the shape of VERA's test set. Illustrative only:
-   no pass/fail colours, because nothing here is bound to a real run. Blocks drop in once, then
-   rise under the pointer. Pauses off-screen, on request and under reduced motion. */
-const canvas = $('#heroCanvas');
-const pauseBtn = $('#heroPause');
-if (canvas && canvas.getContext) {
-  const ctx = canvas.getContext('2d');
-  const ROWS = [8, 8, 8, 8, 4];
-  const blocks = [];
-  ROWS.forEach((n, r) => { for (let c = 0; c < n; c++) blocks.push({ r, c, h: 0, target: 1, born: (r * 8 + c) * 28 + 200, lift: 0 }); });
-  let W = 0, H = 0, dpr = 1, unit = 30, ox = 0, oy = 0;
-  let pointer = { x: -9999, y: -9999 };
-  let paused = reduced, visible = true, t0 = performance.now(), raf = 0;
-
-  const resize = () => {
-    const rect = canvas.getBoundingClientRect();
-    dpr = Math.min(2, devicePixelRatio || 1);
-    W = rect.width; H = rect.height;
-    canvas.width = Math.round(W * dpr); canvas.height = Math.round(H * dpr);
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    const wide = W > 1000;
-    unit = wide ? Math.min(40, W / 36) : Math.min(28, W / 16);
-    ox = wide ? W * 0.75 : W * 0.5;
-    oy = wide ? H * 0.40 : H * 0.84;
+/* ---------- First-visit intro: about 1.5s, once per session, skippable ---------- */
+const intro = $('#intro');
+let seen = true;
+try { seen = sessionStorage.getItem('vera-intro') === '1'; sessionStorage.setItem('vera-intro', '1'); } catch (e) { seen = true; }
+if (intro && !seen && !reduced) {
+  fillLattice($('#introGrid'), true);
+  intro.hidden = false;
+  let done = false;
+  const end = () => {
+    if (done) return; done = true;
+    intro.classList.add('out');
+    setTimeout(() => { intro.hidden = true; }, 700);
+    removeEventListener('keydown', end); removeEventListener('wheel', end);
   };
-  const iso = (x, y, z) => ({ x: ox + (x - y) * unit * 0.866, y: oy + (x + y) * unit * 0.5 - z * unit });
+  intro.addEventListener('click', end);
+  addEventListener('keydown', end, { once: true });
+  addEventListener('wheel', end, { once: true, passive: true });
+  setTimeout(end, 850);
+}
 
-  function drawBlock(b, now) {
-    const age = now - t0 - b.born;
-    const drop = reduced ? 1 : Math.min(1, Math.max(0, age / 700));
-    const e = 1 - Math.pow(1 - drop, 3);
-    if (e <= 0) return;
-    const x = b.c * 1.18, y = b.r * 1.18;
-    const base = 0.55;
-    const top = iso(x + 0.5, y + 0.5, base + b.lift * 1.6);
-    const d = Math.hypot(pointer.x - top.x, pointer.y - top.y);
-    const want = d < unit * 3.2 ? (1 - d / (unit * 3.2)) : 0;
-    b.lift += (want - b.lift) * 0.12;
-    const z0 = (1 - e) * 6; // falls from above
-    const zTop = base + b.lift * 1.6 + z0;
-    const s = 0.92;
-    const p = (dx, dy, z) => iso(x + dx * s, y + dy * s, z);
-    const a = p(0, 0, zTop), bb = p(1, 0, zTop), c = p(1, 1, zTop), dd = p(0, 1, zTop);
-    const b0 = p(1, 0, z0), c0 = p(1, 1, z0), d0 = p(0, 1, z0);
-    const hl = b.lift;
-    ctx.globalAlpha = e;
-    // left face
-    ctx.fillStyle = `rgb(${16 + hl * 20}, ${30 + hl * 30}, ${120 + hl * 60})`;
-    ctx.beginPath(); ctx.moveTo(dd.x, dd.y); ctx.lineTo(c.x, c.y); ctx.lineTo(c0.x, c0.y); ctx.lineTo(d0.x, d0.y); ctx.closePath(); ctx.fill();
-    // right face
-    ctx.fillStyle = `rgb(${22 + hl * 30}, ${44 + hl * 40}, ${190 + hl * 40})`;
-    ctx.beginPath(); ctx.moveTo(c.x, c.y); ctx.lineTo(bb.x, bb.y); ctx.lineTo(b0.x, b0.y); ctx.lineTo(c0.x, c0.y); ctx.closePath(); ctx.fill();
-    // top face
-    const g = ctx.createLinearGradient(a.x, a.y, c.x, c.y);
-    g.addColorStop(0, `rgb(${70 + hl * 150}, ${100 + hl * 130}, 255)`);
-    g.addColorStop(1, `rgb(${40 + hl * 120}, ${70 + hl * 120}, ${245})`);
-    ctx.fillStyle = g;
-    ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(bb.x, bb.y); ctx.lineTo(c.x, c.y); ctx.lineTo(dd.x, dd.y); ctx.closePath(); ctx.fill();
-    ctx.strokeStyle = `rgba(220, 227, 255, ${0.18 + hl * 0.5})`; ctx.lineWidth = 1; ctx.stroke();
-    ctx.globalAlpha = 1;
-  }
-
-  function frame(now) {
-    ctx.clearRect(0, 0, W, H);
-    // floor grid under the lattice
-    ctx.strokeStyle = 'rgba(110,127,255,0.10)'; ctx.lineWidth = 1;
-    for (let i = -1; i <= 10; i++) { const a = iso(i * 1.18 - 0.1, -0.6, 0), b = iso(i * 1.18 - 0.1, 6.6, 0); ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke(); }
-    for (let j = -1; j <= 6; j++) { const a = iso(-0.6, j * 1.18 - 0.1, 0), b = iso(10.2, j * 1.18 - 0.1, 0); ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke(); }
-    blocks.slice().sort((p, q) => (p.r + p.c) - (q.r + q.c)).forEach((b) => drawBlock(b, now));
-    const settled = now - t0 > 36 * 28 + 1200;
-    const moving = blocks.some((b) => b.lift > 0.002) || pointer.x > -9000;
-    if (!paused && visible && (!settled || moving)) raf = requestAnimationFrame(frame);
-    else raf = 0;
-  }
-  const kick = () => { if (!raf && !paused && visible) raf = requestAnimationFrame(frame); };
-
-  resize();
-  addEventListener('resize', () => { resize(); if (!raf) frame(performance.now()); });
-  const hero = canvas.parentElement;
-  hero.addEventListener('pointermove', (e) => { const r = canvas.getBoundingClientRect(); pointer = { x: e.clientX - r.left, y: e.clientY - r.top }; kick(); });
-  hero.addEventListener('pointerleave', () => { pointer = { x: -9999, y: -9999 }; kick(); });
-  new IntersectionObserver(([en]) => { visible = en.isIntersecting; kick(); }).observe(hero);
-  if (reduced) { frame(performance.now() + 99999); pauseBtn.hidden = true; }
-  else kick();
+/* ---------- Pause: stops the rule marquee ---------- */
+const pauseBtn = $('#heroPause');
+if (pauseBtn) {
+  if (reduced) pauseBtn.hidden = true;
   pauseBtn.addEventListener('click', () => {
-    paused = !paused;
+    const paused = pauseBtn.getAttribute('aria-pressed') !== 'true';
     pauseBtn.setAttribute('aria-pressed', String(paused));
     pauseBtn.textContent = paused ? 'Play animation' : 'Pause animation';
     $('.marquee').classList.toggle('paused', paused);
-    if (paused) { blocks.forEach((b) => { b.lift = 0; }); frame(performance.now() + 99999); }
-    kick();
   });
 }
 

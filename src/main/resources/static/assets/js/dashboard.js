@@ -289,7 +289,8 @@ function latticePanel(r, animate) {
     let i = bi * 8;
     const cells = cellsHtml(m).replace(/class="cell /g, () => `style="--i:${i++}" class="cell `);
     return `<div class="lrow${state.changed.includes(b.batch) ? ' changed' : ''}">
-      <a class="lrow-n" href="#batches?b=${b.batch}" title="${esc(batchName(b.batch))}">B${b.batch}</a>
+      <a class="lrow-n" href="#batches?b=${b.batch}">B${b.batch}</a>
+      <span class="lrow-name">${esc(batchName(b.batch))}</span>
       <div class="lcells" role="group" aria-label="${esc(cellSummary(b, m))}">${cells}</div>
       <span class="lrow-rate num ${rateTone(b.overallPassRate)}">${esc(pct(b.overallPassRate))}</span>
       ${chip(b.finalStatus, '', state.changed.includes(b.batch) ? 'changed' : '')}
@@ -297,7 +298,7 @@ function latticePanel(r, animate) {
   }).join('');
   const total = r.batches.reduce((a, b) => a + b.casesTotal, 0);
   return `<section class="lattice panel${animate ? ' enter' : ''}" aria-labelledby="latticeH" data-lattice>
-    <div class="lattice-h"><h2 id="latticeH">Case lattice</h2><span>${total} claims · arrow keys move between failed cells</span></div>
+    <div class="lattice-h"><h2 id="latticeH">Case lattice</h2><span>${total} claims · one cell per claim · hover or focus a failed cell for its rule, click for evidence</span></div>
     <div class="lrows">${rows}</div>
     ${legendHtml()}
   </section>`;
@@ -311,10 +312,13 @@ function verdictBand(r, animate) {
   const mock = r.provider === 'mock';
   const alerts = r.driftAlerts || [];
   const prev = alerts.length ? (alerts[0].match(/run #(\d+)/) || [])[1] : null;
+  const cut = v.text.indexOf('. ');
+  const head = cut > 0 ? v.text.slice(0, cut + 1) : v.text;
+  const rest = cut > 0 ? v.text.slice(cut + 2) : '';
   return `<section class="verdict-band${animate ? ' enter' : ''}" aria-labelledby="verdictH"><div class="wrap verdict">
     <div class="verdict-text">
-      ${chip(v.status, 'chip-l')}
-      <h1 id="verdictH">${esc(v.text)}</h1>
+      <div class="v-line">${chip(v.status, 'chip-l')}<h1 id="verdictH">${esc(head)}${rest ? `<span class="sr-only"> ${esc(rest)}</span>` : ''}</h1></div>
+      ${rest ? `<p class="v-rest" aria-hidden="true">${esc(rest)}</p>` : ''}
       <div class="tally" aria-label="Batches by final status">${tally}</div>
       <div class="meta">
         ${r.runNumber ? `<span>Run <b>#${r.runNumber}</b></span>` : ''}
@@ -325,7 +329,6 @@ function verdictBand(r, animate) {
       </div>
       ${alerts.length ? `<a class="drift-line" href="#drift">${icon('alert')}<span><b>${alerts.length} drift alert${alerts.length === 1 ? '' : 's'}</b> against run #${esc(prev || '?')}, same agent, model and prompt</span>${icon('arrow')}</a>` : ''}
     </div>
-    ${latticePanel(r, animate)}
   </div></section>`;
 }
 
@@ -386,8 +389,8 @@ function decisionList(r) {
     const b = r.batches.find((x) => x.batch === n);
     if (!b) return '';
     return `<li class="dec-row" data-pend="${n}" tabindex="-1">
-      <span class="dec-n num">B${n}</span>
-      <span class="dec-name"><b>${esc(batchName(n))}</b><span>${b.criticalFailures} critical · ${b.casesTested}/${b.casesTotal} scored</span></span>
+      <span class="dec-n num">${pad2(n)}</span>
+      <span class="dec-name"><b>${esc(batchName(n))}</b><span>B${n} · ${b.criticalFailures} critical · ${b.casesTested}/${b.casesTotal} scored</span></span>
       <span class="dec-bar">${rateBar(b.overallPassRate, `Batch ${n}`)}</span>
       <span class="dec-rate num ${rateTone(b.overallPassRate)}">${esc(pct(b.overallPassRate))}</span>
       ${chip(b.finalStatus)}
@@ -409,7 +412,7 @@ function decisionButtons(n) {
 function overview(animate) {
   if (!hasRun()) return startState();
   const r = state.report;
-  return verdictBand(r, animate) + `<div class="wrap">${consistencyNotice(r)}${figures(r)}${driftSection(r)}${decisionList(r)}</div>`;
+  return verdictBand(r, animate) + `<div class="wrap">${consistencyNotice(r)}${figures(r)}${latticePanel(r, animate)}${decisionList(r)}${driftSection(r)}</div>`;
 }
 
 /* ----- Batches ----- */
@@ -453,7 +456,7 @@ function batches(animate) {
       : (b.autoStatus !== b.finalStatus ? `<span class="auto">Automatic result: ${esc(statusLabel(b.autoStatus))}</span>` : '');
     const why = whyNotScored(b);
     return `<tr id="batch-${b.batch}" class="${state.focusBatch === b.batch ? 'focus' : ''}${changed ? ' changed' : ''}">
-      <td class="b-no" data-l="No.">${b.batch}</td>
+      <td class="b-no" data-l="No.">${pad2(b.batch)}</td>
       <th scope="row" class="b-name wide"><b>${esc(meta.name)}</b><span>${esc(meta.desc)}</span>${why ? `<p class="why">${icon('incomplete')}${esc(why)}</p>` : ''}</th>
       <td class="wide" data-l="Claims (lattice)"><div class="lcells" role="group" aria-label="${esc(cellSummary(b, m))}">${cellsHtml(m)}</div></td>
       <td class="n" data-l="Scored">${b.casesTested}/${b.casesTotal}</td>
@@ -729,6 +732,43 @@ document.addEventListener('keydown', (ev) => {
   ev.preventDefault();
   all[j].focus();
 });
+
+// Lattice callout: hovering or focusing a failed cell shows its case, rule and expected vs actual.
+const tip = document.createElement('div');
+tip.className = 'cell-tip';
+tip.setAttribute('role', 'tooltip');
+tip.id = 'cellTip';
+tip.hidden = true;
+document.body.appendChild(tip);
+function showTip(cell) {
+  const r = state.report;
+  if (!r || !cell.dataset.key) return;
+  const f = (r.failedCases || []).find((x) => `${x.caseId}/${x.dimension}` === cell.dataset.key);
+  if (!f) return;
+  const more = (r.failedCases || []).filter((x) => x.caseId === f.caseId).length - 1;
+  const sev = isApiError(f) ? 'API error' : isCritical(f) ? 'Critical' : 'Failed';
+  tip.innerHTML = `<p class="ct-h"><b>${esc(f.caseId)}</b><span>B${esc(f.batch)} · ${esc(dimensionLabel(f.dimension))}</span><i>${sev}</i></p>
+    <p class="ct-rule">${esc(ruleText(f.ruleViolated))}</p>
+    ${f.expectedVsActual ? `<p class="ct-ev"><span>Expected vs actual</span>${esc(String(f.expectedVsActual).slice(0, 140))}</p>` : ''}
+    <p class="ct-foot">${more > 0 ? `+${more} more check${more === 1 ? '' : 's'} failed · ` : ''}Click for evidence</p>`;
+  tip.hidden = false;
+  const b = cell.getBoundingClientRect();
+  const w = tip.offsetWidth, h = tip.offsetHeight;
+  let x = Math.min(innerWidth - w - 8, Math.max(8, b.left + b.width / 2 - 24));
+  let y = b.top - h - 10;
+  tip.classList.toggle('below', y < 56);
+  if (y < 56) y = b.bottom + 10;
+  tip.style.left = `${x}px`; tip.style.top = `${y}px`;
+  tip.style.setProperty('--ax', `${Math.max(10, b.left + b.width / 2 - x)}px`);
+  cell.setAttribute('aria-describedby', 'cellTip');
+}
+const hideTip = () => { tip.hidden = true; };
+document.addEventListener('pointerover', (e) => { const c = e.target.closest && e.target.closest('a.cell'); if (c) showTip(c); else if (!tip.hidden && !(document.activeElement && document.activeElement.matches && document.activeElement.matches('a.cell'))) hideTip(); });
+document.addEventListener('focusin', (e) => { const c = e.target.closest && e.target.closest('a.cell'); if (c) showTip(c); else hideTip(); });
+document.addEventListener('focusout', (e) => { if (e.target.closest && e.target.closest('a.cell')) hideTip(); });
+addEventListener('scroll', hideTip, { passive: true });
+addEventListener('hashchange', hideTip);
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape') hideTip(); });
 
 $('#runBtn').addEventListener('click', runSuite);
 $('#printBtn').innerHTML = icon('print');
