@@ -1,0 +1,57 @@
+/* Print: a one-page executive summary of the Overview (verdict, lattice, figures, drift,
+   decisions, disclaimer). Light paper colours, no navigation, no interactive controls. */
+@page { size: A4 landscape; margin: 12mm; }
+
+:root, :root[data-theme="dark"] {
+  --paper: #fff; --paper-2: #fff; --ink: #111; --ink-rgb: 17 17 17; --muted: #444;
+  --hair: rgb(17 17 17 / .18); --hair-2: rgb(17 17 17 / .35); --accent: #111; --accent-soft: transparent;
+}
+* { animation: none !important; transition: none !important; }
+.cell, .chip, .c-passed, .rbar-fill { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+.cell-tip { display: none !important; }
+html, body { background: #fff !important; color: var(--ink); font-size: 11pt; }
+.shell, .banner-fixture, .toast, .skip, .runbar, .demo-notes, .foot-links, .drawer-root, .rdlg,
+.btn, .decide, .notice-wrap, .lattice-h span, .drift .note a { display: none !important; }
+
+/* Mock disclaimer stays visible on paper */
+.banner-sim { background: #fff !important; color: var(--ink) !important; border: 1.5px solid var(--ink); border-radius: 6px; margin-bottom: 4mm; }
+.banner-sim .wrap { padding: 2mm 3mm; }
+
+.band.on-ink { background: #fff !important; color: var(--ink) !important; }
+.band.on-ink::before, .band.on-ink::after { display: none !important; }
+.wrap { max-width: none; padding: 0; }
+.verdict { grid-template-columns: 1fr 1fr; gap: 6mm; padding: 0 0 4mm; align-items: start; }
+.verdict h1, .page-band h1 { color: var(--ink) !important; font-size: 20pt; }
+.meta b { color: var(--ink); }
+.drift-line { display: none !important; }
+.lattice { background: #fff !important; border: 1px solid var(--hairline); backdrop-filter: none; padding: 3mm; }
+.lattice-h h2 { color: var(--ink); }
+.cell { --cs: 14px !important; print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+.chip, .rbar-fill, .segs span, .ticks i, .pend-b, .c-critical, .c-passed, .c-failed { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+.figs { margin-top: 0; border: 1px solid var(--hairline); break-inside: avoid; }
+.fig { padding: 3mm; }
+.fig .v { font-size: 22pt; }
+.fig .l { min-height: 0; font-size: 9pt; }
+.drift { break-inside: avoid; margin-top: 4mm; padding: 3mm; }
+.drift ul { font-size: 9.5pt; }
+.sec { margin-top: 4mm; }
+.dec-row { padding: 2mm 3mm; break-inside: avoid; }
+.dec-n { font-size: 14pt; }
+html, body { height: auto !important; min-height: 0 !important; overflow: visible !important; }
+body { zoom: .82; }
+.lrows { gap: 3px !important; }
+.lattice-h { margin-bottom: 2mm !important; }
+.legend { margin-top: 2mm !important; padding-top: 1mm !important; }
+.tally, .meta { margin-top: 2mm !important; }
+.drift ul { gap: 0 !important; }
+.toast, .drawer-root, dialog { position: static !important; display: none !important; }
+main { padding: 0 !important; min-height: 0 !important; }
+.drift .note, .decisions { display: none !important; }
+.lattice { padding: 0; border: 0; }
+.verdict { display: block; }
+.verdict { padding-bottom: 2mm !important; }
+.banner-sim { margin-bottom: 2mm; }
+.verdict h1 { font-size: 18pt; }
+.foot { border-top: 1px solid var(--hairline); margin-top: 2mm; padding: 1mm 0 0; font-size: 8pt; }
+.foot-in { display: block; }
+a { color: inherit; text-decoration: none; }

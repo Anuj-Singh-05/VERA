@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>VERA - Assurance Register</title>
+<style>
+:root{
+  --paper:#f3efe6;--sheet:#fbf9f3;--ink:#1c1b19;--muted:#6d6a60;--rule:#d8d2c3;--rule2:#c4bda9;
+  --pine:#1e6b4d;--pine-t:#dcebe1;--ochre:#a8680b;--ochre-t:#f6e7c4;--verm:#c0392b;--verm-t:#f6dcd7;--plum:#5e4a8c;--plum-t:#e7e1f1;--slate:#6d6a60;--slate-t:#e6e2d6;
+  --serif:"Iowan Old Style","Palatino Linotype",Palatino,"Book Antiqua",Georgia,"Times New Roman",serif;
+  --sans:"Segoe UI",system-ui,-apple-system,"Helvetica Neue",Arial,sans-serif;
+  --mono:"Cascadia Mono","SF Mono",ui-monospace,Consolas,"Liberation Mono",monospace;
+}
+[data-theme="night"]{
+  --paper:#14161b;--sheet:#1b1e25;--ink:#ece7da;--muted:#a09c8f;--rule:#2f333d;--rule2:#434856;
+  --pine:#58c79a;--pine-t:#15342a;--ochre:#e8b04a;--ochre-t:#3a2d12;--verm:#ff7f6e;--verm-t:#40201c;--plum:#b9a4f0;--plum-t:#2b2347;--slate:#a09c8f;--slate-t:#272b34;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--paper);color:var(--ink);font:15px/1.55 var(--sans)}
+button{font:inherit;cursor:pointer;color:inherit}
+.wrap{max-width:1320px;margin:0 auto;padding:0 28px}
+/* masthead */
+.mast{border-bottom:3px double var(--ink);background:var(--paper)}
+.mast .wrap{display:flex;align-items:center;gap:18px;padding-top:16px;padding-bottom:14px;flex-wrap:wrap}
+.word{display:flex;align-items:baseline;gap:14px;margin-right:auto}
+.word b{font:700 30px/1 var(--serif);letter-spacing:.14em}
+.word span{font:600 11px/1.3 var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--muted);max-width:230px}
+.btn{border:1.5px solid var(--ink);background:transparent;color:var(--ink);padding:8px 15px;border-radius:3px;font:600 12.5px var(--mono);letter-spacing:.06em;text-transform:uppercase;display:inline-flex;align-items:center;gap:8px}
+.btn:hover{background:var(--ink);color:var(--paper)}
+.btn.solid{background:var(--ink);color:var(--paper)}
+.btn.solid:hover{background:transparent;color:var(--ink)}
+.btn[disabled]{opacity:.6;cursor:progress}
+.btn.go{border-color:var(--pine);color:var(--pine)}.btn.go:hover{background:var(--pine);color:var(--sheet)}
+.btn.stop{border-color:var(--verm);color:var(--verm)}.btn.stop:hover{background:var(--verm);color:var(--sheet)}
+.btn.xs{padding:5px 10px;font-size:11px}
+.btn:focus-visible,summary:focus-visible,.tab:focus-visible,.sq:focus-visible,input:focus-visible,textarea:focus-visible{outline:3px solid var(--ochre);outline-offset:2px}
+.spin{width:12px;height:12px;border:2px solid currentColor;border-right-color:transparent;border-radius:50%;animation:sp .8s linear infinite}
+@keyframes sp{to{transform:rotate(360deg)}}
+.sim{background:repeating-linear-gradient(135deg,var(--ochre-t) 0 12px,transparent 12px 24px);border-bottom:1px solid var(--rule2);font:600 12px var(--mono);letter-spacing:.08em;text-transform:uppercase;text-align:center;padding:7px 12px;color:var(--ochre)}
+main{padding:46px 0 60px}
+/* document header */
+.doc{display:grid;grid-template-columns:1fr auto;gap:30px;align-items:start;margin-bottom:26px}
+.eyebrow{font:600 11.5px var(--mono);letter-spacing:.16em;text-transform:uppercase;color:var(--muted)}
+.doc h1{font:700 clamp(28px,3.4vw,42px)/1.12 var(--serif);margin:10px 0 16px;max-width:760px;letter-spacing:-.01em}
+.meta{display:flex;flex-wrap:wrap;gap:6px 22px;font:12.5px var(--mono);color:var(--muted)}
+.meta b{color:var(--ink);font-weight:600}
+.stamp{--c:var(--slate);font:800 21px/1.05 var(--mono);letter-spacing:.14em;text-transform:uppercase;border:3px solid var(--c);color:var(--c);padding:16px 22px;border-radius:6px;transform:rotate(-4deg);position:relative;text-align:center;margin:6px 14px 0 0;min-width:210px}
+.stamp::after{content:"";position:absolute;inset:4px;border:1px solid var(--c);border-radius:3px;pointer-events:none}
+.stamp small{display:block;font:600 11px var(--mono);letter-spacing:.1em;margin-top:8px;text-transform:none}
+.stamp.CERTIFIED{--c:var(--pine)}.stamp.BLOCKED{--c:var(--verm)}.stamp.NEEDS_HUMAN_REVIEW{--c:var(--ochre)}.stamp.INCOMPLETE{--c:var(--plum)}
+/* key figures */
+.figs{display:grid;grid-template-columns:repeat(5,1fr);border-top:1px solid var(--ink);border-bottom:1px solid var(--ink);margin-bottom:34px}
+.fig{padding:16px 20px;border-left:1px solid var(--rule2)}
+.fig:first-child{border-left:0;padding-left:0}
+.fig .v{font:600 30px/1.1 var(--mono);letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+.fig .l{font:600 10.5px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-top:6px}
+.fig.bad .v{color:var(--verm)}.fig.good .v{color:var(--pine)}.fig.warn .v{color:var(--ochre)}
+/* sections */
+section{margin-bottom:42px}
+h2.sec{font:700 24px/1.2 var(--serif);margin:0 0 6px;display:flex;gap:14px;align-items:baseline;border-top:3px solid var(--ink);padding-top:12px}
+h2.sec i{font:600 12px var(--mono);font-style:normal;letter-spacing:.1em;color:var(--muted)}
+p.lede{margin:0 0 18px;color:var(--muted);max-width:820px;font-size:14px}
+/* ledger */
+.sheet{background:var(--sheet);border:1px solid var(--rule2)}
+.ledger{width:100%;border-collapse:collapse}
+.ledger th{font:600 10.5px/1.25 var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--muted);text-align:left;padding:12px 12px;border-bottom:2px solid var(--ink);white-space:nowrap}
+.ledger td{padding:15px 12px;border-bottom:1px solid var(--rule);vertical-align:middle}
+.ledger tr:last-child td{border-bottom:0}
+.ledger .n,.ledger th.n{text-align:right;font-family:var(--mono);font-variant-numeric:tabular-nums}
+.ledger td.n{font-size:14px}
+.no{font:700 34px/1 var(--serif);color:var(--ink)}
+.bn b{display:block;font:700 16px var(--serif)}
+.bn span{font-size:12.5px;color:var(--muted)}
+.ok{color:var(--pine)}.warn{color:var(--ochre)}.bad{color:var(--verm)}.na{color:var(--muted)}
+.overall{min-width:92px}
+.overall b{font:700 18px var(--mono)}
+.overall .tr{height:4px;background:var(--rule);margin-top:5px}
+.overall .tr i{display:block;height:100%;background:var(--c)}
+.strip{display:flex;flex-wrap:wrap;gap:3px;max-width:150px}
+.sq{width:14px;height:14px;border-radius:2px;background:var(--pine);border:0;padding:0;display:block}
+.sq.f{background:var(--verm)}
+.sq.c{background:repeating-linear-gradient(135deg,var(--verm) 0 3px,var(--ink) 3px 5px)}
+.sq.e{background:repeating-linear-gradient(45deg,var(--slate) 0 3px,transparent 3px 6px);outline:1px solid var(--slate);outline-offset:-1px}
+.sq[data-case]{cursor:pointer}
+.sq[data-case]:hover{transform:scale(1.35)}
+.tag{display:inline-block;font:700 10.5px var(--mono);letter-spacing:.1em;text-transform:uppercase;border:1.5px solid var(--c);color:var(--c);padding:3px 8px;border-radius:3px;transform:rotate(-2deg);white-space:nowrap}
+.tag.CERTIFIED{--c:var(--pine)}.tag.BLOCKED{--c:var(--verm)}.tag.NEEDS_HUMAN_REVIEW{--c:var(--ochre)}.tag.INCOMPLETE{--c:var(--plum)}.tag.NO_DATA{--c:var(--slate)}
+.how{font:12px var(--mono);color:var(--muted);margin-top:4px}
+.decide{display:flex;gap:6px;flex-wrap:nowrap}
+.legend{display:flex;flex-wrap:wrap;gap:8px 20px;padding:12px 14px;border-top:1px solid var(--rule);font:11.5px var(--mono);color:var(--muted)}
+.legend span{display:inline-flex;align-items:center;gap:7px}
+.legend .sq{width:12px;height:12px}
+.auto{font:11.5px/1.4 var(--mono);color:var(--muted);margin-top:6px;max-width:210px}
+/* notices */
+.notice{background:var(--verm-t);border-left:6px solid var(--verm);padding:16px 20px;margin-bottom:34px}
+.notice h3{font:700 11.5px var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--verm);margin:0 0 8px}
+.notice ul{margin:0;padding-left:18px}.notice li{margin:3px 0;font-size:14px}
+/* findings */
+.tabs{display:flex;gap:0;margin-bottom:0;border-bottom:1px solid var(--ink);flex-wrap:wrap}
+.tab{background:none;border:0;border-bottom:3px solid transparent;margin-bottom:-1px;padding:9px 16px;font:600 12px var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.tab[aria-pressed="true"]{color:var(--ink);border-bottom-color:var(--ink)}
+.tab b{margin-left:6px;color:var(--ink)}
+details.fd{border-bottom:1px solid var(--rule);background:var(--sheet)}
+details.fd.flash{animation:fl 1.6s}
+@keyframes fl{0%,60%{background:var(--ochre-t)}100%{background:var(--sheet)}}
+details.fd summary{list-style:none;display:grid;grid-template-columns:62px 82px 118px 1fr 28px;gap:12px;align-items:center;padding:14px 16px;cursor:pointer}
+details.fd summary::-webkit-details-marker{display:none}
+details.fd summary:hover{background:color-mix(in srgb,var(--sheet) 70%,var(--paper))}
+.fid{font:600 12px var(--mono);color:var(--muted)}
+.cid{font:700 15px var(--mono)}
+.sev{font:700 10.5px var(--mono);letter-spacing:.1em;text-transform:uppercase;padding:3px 8px;border-radius:2px;justify-self:start;background:var(--slate-t);color:var(--slate)}
+.sev.crit{background:var(--verm);color:var(--sheet)}
+.what b{display:block;font-weight:600}
+.what span{font:12px var(--mono);color:var(--muted);overflow-wrap:anywhere}
+.pm{font:700 18px var(--mono);text-align:center;color:var(--muted)}
+details[open] .pm::before{content:"\2212"}details:not([open]) .pm::before{content:"+"}
+.evid{display:grid;grid-template-columns:1fr 1.6fr;gap:0;border-top:1px dashed var(--rule2);background:var(--paper)}
+.evid>div{padding:14px 18px}
+.evid>div+div{border-left:1px dashed var(--rule2)}
+.evid h4{font:600 10.5px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin:0 0 8px}
+.evid pre{margin:0;font:12.5px/1.6 var(--mono);white-space:pre-wrap;overflow-wrap:anywhere;max-height:240px;overflow:auto}
+.foot{font:11.5px var(--mono);color:var(--muted);padding:10px 18px;border-top:1px dashed var(--rule2);background:var(--paper)}
+.emptyline{padding:30px;text-align:center;color:var(--muted);background:var(--sheet);border:1px dashed var(--rule2)}
+/* run ledger */
+.runs{border-collapse:separate;border-spacing:4px;font:13px var(--mono);width:100%;max-width:880px}
+.runs th{font:600 11px var(--mono);color:var(--muted);text-align:center;padding:2px 8px;white-space:nowrap}
+.runs th.rl{text-align:left;color:var(--ink);font-weight:700}
+.runs td{text-align:center;padding:11px 14px;font-weight:600;min-width:84px}
+.runs td.CERTIFIED{background:var(--pine-t);color:var(--pine)}.runs td.NEEDS_HUMAN_REVIEW{background:var(--ochre-t);color:var(--ochre)}.runs td.BLOCKED{background:var(--verm-t);color:var(--verm)}.runs td.INCOMPLETE{background:var(--plum-t);color:var(--plum)}.runs td.NO_DATA,.runs td.none{background:var(--slate-t);color:var(--slate)}
+.runs td.rl{text-align:left;background:none;font:700 15px var(--serif);color:var(--ink)}
+.cap{font:11.5px var(--mono);color:var(--muted);padding:10px 14px}
+.logt{width:100%;border-collapse:collapse;font-size:14px}
+.logt th{font:600 10.5px var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--muted);text-align:left;padding:11px 14px;border-bottom:2px solid var(--ink)}
+.logt td{padding:12px 14px;border-bottom:1px solid var(--rule);vertical-align:top}
+.logt tr:last-child td{border-bottom:0}
+.logt .m{font-family:var(--mono);font-size:12.5px}
+/* hero empty */
+.start{text-align:center;padding:64px 20px;border:1px dashed var(--rule2);background:var(--sheet);margin-bottom:42px}
+.start h2{font:700 30px var(--serif);margin:0 0 10px}
+.start p{max-width:560px;margin:0 auto 22px;color:var(--muted)}
+/* dialog */
+dialog{border:2px solid var(--ink);border-radius:4px;padding:0;max-width:470px;width:calc(100% - 28px);background:var(--sheet);color:var(--ink);box-shadow:10px 10px 0 rgba(0,0,0,.18)}
+dialog::backdrop{background:rgba(20,18,12,.55)}
+dialog form{padding:26px;display:grid;gap:14px}
+dialog h3{margin:0;font:700 22px var(--serif)}
+dialog p{margin:0;color:var(--muted);font-size:14px}
+label.f{display:grid;gap:6px;font:600 11px var(--mono);letter-spacing:.1em;text-transform:uppercase}
+label.f input,label.f textarea{font:15px var(--sans);letter-spacing:0;text-transform:none;color:var(--ink);background:var(--paper);border:1.5px solid var(--rule2);border-radius:3px;padding:10px 12px}
+.dact{display:flex;justify-content:flex-end;gap:10px}
+.toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%) translateY(26px);background:var(--ink);color:var(--paper);padding:11px 18px;border-radius:3px;font:600 12.5px var(--mono);letter-spacing:.04em;opacity:0;pointer-events:none;transition:.25s;z-index:60}
+.toast.show{opacity:1;transform:translateX(-50%)}
+footer{border-top:3px double var(--ink);padding:16px 0 40px;font:11.5px var(--mono);color:var(--muted);letter-spacing:.04em}
+@media (max-width:1180px){
+  .ledger thead{display:none}.ledger,.ledger tbody{display:block}
+  .ledger tr{display:grid;grid-template-columns:repeat(3,1fr);gap:12px 18px;padding:18px 16px;border-bottom:1px solid var(--rule)}
+  .ledger td{display:block;border:0;padding:0;text-align:left!important}
+  .ledger td::before{content:attr(data-l);display:block;font:600 10px var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:3px}
+  .ledger td.first,.ledger td.wide{grid-column:1/-1}.ledger td.first::before{display:none}
+  .ledger td.first{display:flex;gap:14px;align-items:center}
+  .figs{grid-template-columns:repeat(3,1fr)}.fig:nth-child(4){border-left:0;padding-left:0}
+  .doc{grid-template-columns:1fr}.stamp{justify-self:start;transform:rotate(-2deg);margin-left:6px}
+}
+@media (max-width:640px){
+  .wrap{padding:0 16px}.figs{grid-template-columns:repeat(2,1fr)}.fig{padding:14px 12px}.fig:nth-child(odd){border-left:0;padding-left:0}.fig:nth-child(3){border-left:0;padding-left:0}
+  .ledger tr{grid-template-columns:repeat(2,1fr)}
+  details.fd summary{grid-template-columns:54px 1fr 24px;row-gap:6px}.fid{display:none}.sev{grid-column:2}.what{grid-column:1/3}.pm{grid-row:1;grid-column:3}
+  .evid{grid-template-columns:1fr}.evid>div+div{border-left:0;border-top:1px dashed var(--rule2)}
+  .word span{display:none}
+}
+@media print{
+  .btn,.tabs,.decide,.toast,.sim{display:none!important}body{background:#fff}
+  .ledger thead{display:table-header-group}details.fd .evid,details.fd .foot{display:grid}
+  section,details.fd{break-inside:avoid}
+}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<header class="mast"><div class="wrap">
+  <div class="word"><b>VERA</b><span>Verified Evaluation &amp; Risk Assurance</span></div>
+  <button class="btn" id="themeBtn" type="button">Night</button>
+  <button class="btn" id="printBtn" type="button">Print report</button>
+  <button class="btn solid" id="runBtn" type="button">Run assurance suite</button>
+</div></header>
+<div class="sim" id="sim" hidden>Simulated agent: this run tests the pipeline only and says nothing about a real LLM</div>
+<main class="wrap"><div id="content"></div></main>
+<footer><div class="wrap">VERA is an academic prototype. The agent is simulated and every claim is synthetic.</div></footer>
+
+<dialog id="dlg"><form method="dialog" id="dlgForm">
+  <h3 id="dlgTitle">Sign-off</h3><p id="dlgText"></p>
+  <label class="f">Reviewer name<input id="dlgName" required autocomplete="name"></label>
+  <label class="f">Reason<textarea id="dlgReason" rows="3" required></textarea></label>
+  <div class="dact"><button class="btn" type="button" id="dlgCancel">Cancel</button><button class="btn solid" type="submit" id="dlgOk">Confirm</button></div>
+</form></dialog>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script>
+(function(){
+'use strict';
+var $=function(s){return document.querySelector(s)};
+var state={report:null,runs:[],log:[],tab:'all',running:false};
+var BN={1:['Clean claims','Consistent documents, well inside the limit'],2:['Near the limit','Amounts close to the cap, subtler mismatches'],3:['Adversarial evidence','Documents agree but exceed the cap; borderline gaps'],4:['Security attacks','Hidden instructions and personal identifiers'],5:['Boundary cases','Gaps of 9 to 14% around the 12% rule']};
+var ST={CERTIFIED:'Certified',NEEDS_HUMAN_REVIEW:'Needs review',BLOCKED:'Blocked',INCOMPLETE:'Incomplete',NO_DATA:'No data'};
+var DL={coverage_limit_compliance:'Coverage limit',evidence_grounding:'Evidence grounding',prompt_injection_resistance:'Prompt injection',pii_protection:'PII protection',agent_call_error:'API error'};
+var RL={coverage_limit_exceeded:'Recommended more than the policy limit',missed_conflict:'Missed a real conflict between documents',false_positive_conflict_flag:'Flagged a conflict inside the 12% rule',followed_injected_instruction:'Followed an instruction hidden in a document',amount_not_supported_by_documents:'Amount not supported by any document',pii_leaked_in_rationale:'Repeated a personal identifier',llm_call_failed:'The model call failed'};
+var CRIT={coverage_limit_exceeded:1,followed_injected_instruction:1,amount_not_supported_by_documents:1};
+function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]})}
+function pct(v){return (v*100).toFixed(1)+'%'}
+function tone(v){return v>=0.9?'ok':(v>=0.7?'warn':'bad')}
+function tcol(v){return v>=0.9?'var(--pine)':(v>=0.7?'var(--ochre)':'var(--verm)')}
+function toast(m){var t=$('#toast');t.textContent=m;t.classList.add('show');clearTimeout(toast._t);toast._t=setTimeout(function(){t.classList.remove('show')},3200)}
+function when(ts){return ts?String(ts).replace('T',' ').substring(0,16)+' UTC':''}
+function getJson(u){return fetch(u).then(function(r){if(!r.ok)throw new Error(u+' '+r.status);return r.json()})}
+function pad(n){return n<10?'0'+n:''+n}
+
+function theme(t){document.documentElement.setAttribute('data-theme',t);$('#themeBtn').textContent=t==='night'?'Paper':'Night'}
+(function(){var t='paper';try{t=localStorage.getItem('vera-theme2')||'paper'}catch(e){}theme(t)})();
+$('#themeBtn').addEventListener('click',function(){var t=document.documentElement.getAttribute('data-theme')==='night'?'paper':'night';theme(t);try{localStorage.setItem('vera-theme2',t)}catch(e){}});
+$('#printBtn').addEventListener('click',function(){window.print()});
+
+function setRunning(on,t0){
+  state.running=on;var b=$('#runBtn');b.disabled=on;clearInterval(setRunning._i);
+  if(on){var f=function(){var s=Math.floor((Date.now()-t0)/1000);b.innerHTML='<span class="spin"></span> Running '+Math.floor(s/60)+':'+pad(s%60)};f();setRunning._i=setInterval(f,1000)}
+  else b.textContent='Run assurance suite';
+}
+$('#runBtn').addEventListener('click',function(){
+  if(state.running)return;setRunning(true,Date.now());toast('Running 36 claims. A live run takes about 4 to 5 minutes; keep this tab open.');
+  fetch('/api/run',{method:'POST'}).then(function(r){if(!r.ok)throw new Error('server returned '+r.status);return r.json()}).then(function(rep){state.report=rep;return sec()})
+   .then(function(){render();toast('Run complete')}).catch(function(e){toast('Run failed: '+e.message)}).then(function(){setRunning(false)});
+});
+
+var pend=null;
+function openReview(b,ap){
+  pend={b:b,ap:ap};$('#dlgTitle').textContent=(ap?'Approve':'Reject')+' batch '+b;
+  $('#dlgText').textContent=ap?'Approving sets the final status of this batch to CERTIFIED for this run.':'Rejecting keeps the final status of this batch BLOCKED for this run.';
+  var n='';try{n=localStorage.getItem('vera-reviewer')||''}catch(e){}
+  $('#dlgName').value=n;$('#dlgReason').value='';$('#dlgOk').textContent=ap?'Approve batch':'Reject batch';$('#dlg').showModal();(n?$('#dlgReason'):$('#dlgName')).focus();
+}
+$('#dlgCancel').addEventListener('click',function(){$('#dlg').close()});
+$('#dlgForm').addEventListener('submit',function(ev){
+  ev.preventDefault();var nm=$('#dlgName').value.trim(),rs=$('#dlgReason').value.trim();if(!nm||!rs||!pend)return;
+  try{localStorage.setItem('vera-reviewer',nm)}catch(e){}
+  var p=pend;$('#dlg').close();
+  fetch('/api/review/'+p.b+'?approve='+p.ap+'&reviewer='+encodeURIComponent(nm)+'&reason='+encodeURIComponent(rs),{method:'POST'})
+   .then(function(r){if(!r.ok)throw new Error('server returned '+r.status);return getJson('/api/report')}).then(function(rep){state.report=rep;return sec()})
+   .then(function(){render();toast('Batch '+p.b+(p.ap?' approved':' rejected')+' and logged')}).catch(function(e){toast('Could not save: '+e.message)});
+});
+function sec(){return Promise.all([getJson('/api/runs').catch(function(){return state.runs}),getJson('/api/review/log').catch(function(){return state.log})]).then(function(a){state.runs=a[0];state.log=a[1]})}
+
+/* ---------- pieces ---------- */
+function verdict(r){
+  var c={CERTIFIED:0,NEEDS_HUMAN_REVIEW:0,BLOCKED:0,INCOMPLETE:0,NO_DATA:0};r.batches.forEach(function(b){c[b.finalStatus]=(c[b.finalStatus]||0)+1});
+  var n=r.batches.length,words=['no','one','two','three','four','five','six','seven','eight','nine'];
+  var st,sub,head;
+  if(c.CERTIFIED===n){st='CERTIFIED';sub='all '+n+' batches';head='Every batch is certified for this run.'}
+  else{
+    st=c.BLOCKED?'BLOCKED':(c.INCOMPLETE||c.NO_DATA?'INCOMPLETE':'NEEDS_HUMAN_REVIEW');
+    sub=c.CERTIFIED+' of '+n+' certified';
+    var parts=[];if(c.BLOCKED)parts.push(c.BLOCKED+' blocked');if(c.NEEDS_HUMAN_REVIEW)parts.push(c.NEEDS_HUMAN_REVIEW+' waiting for a human decision');if(c.INCOMPLETE)parts.push(c.INCOMPLETE+' incomplete');if(c.NO_DATA)parts.push(c.NO_DATA+' with no data');
+    head=(c.CERTIFIED?(words[c.CERTIFIED]||c.CERTIFIED).replace(/^./,function(x){return x.toUpperCase()})+' of '+(words[n]||n)+' batches certified. ':'No batch is certified. ')+parts.join(', ').replace(/^./,function(x){return x.toUpperCase()})+'.';
+  }
+  return {st:st,sub:sub,head:head};
+}
+function failedMap(r){var m={};(r.failedCases||[]).forEach(function(f){var k=f.caseId;(m[k]=m[k]||[]).push(f)});return m}
+function strip(b,fm){
+  var h='<div class="strip" role="list" aria-label="Cases in batch '+b.batch+'">';
+  for(var i=1;i<=b.casesTotal;i++){
+    var id='C'+b.batch+'-'+pad(i),fs=fm[id],cls='',tt=id+': passed all checks',att='';
+    if(fs){var crit=fs.some(function(f){return CRIT[f.ruleViolated]}),err=fs.every(function(f){return f.dimension==='agent_call_error'});
+      cls=err?' e':(crit?' c':' f');tt=id+': '+fs.map(function(f){return RL[f.ruleViolated]||f.ruleViolated}).join('; ');att=' data-case="'+id+'"'}
+    h+='<button type="button" role="listitem" class="sq'+cls+'" title="'+esc(tt)+'" aria-label="'+esc(tt)+'"'+att+'></button>';
+  }
+  return h+'</div>';
+}
+function dimCell(v,l){return v==null?'<td class="n na" data-l="'+l+'">&mdash;</td>':'<td class="n '+tone(v)+'" data-l="'+l+'">'+pct(v)+'</td>'}
+function ledger(r){
+  var fm=failedMap(r),pending=r.pendingHumanReview||[];
+  var h='<div class="sheet"><table class="ledger"><thead><tr><th>No.</th><th>Batch</th><th>Cases</th><th class="n">Coverage</th><th class="n">Evidence</th><th class="n">Injection</th><th class="n">PII</th><th>Overall</th><th class="n">Critical</th><th>Status</th><th>Decision</th></tr></thead><tbody>';
+  r.batches.forEach(function(b){
+    var nm=BN[b.batch]||['Batch '+b.batch,''];
+    var dec=pending.indexOf(b.batch)>=0?'<div class="decide"><button class="btn go xs" type="button" data-rv="'+b.batch+'" data-ap="1">Approve</button><button class="btn stop xs" type="button" data-rv="'+b.batch+'" data-ap="0">Reject</button></div>':(b.humanOverridden?'<span class="how">signed off by a reviewer</span>':'<span class="how na">&mdash;</span>');
+    var auto=(b.humanOverridden||b.autoStatus!==b.finalStatus)?'<div class="auto">automatic result: '+esc(ST[b.autoStatus]||b.autoStatus)+'</div>':'';
+    h+='<tr><td class="first" data-l="No."><span class="no">'+b.batch+'</span></td>'+
+     '<td class="wide" data-l="Batch"><div class="bn"><b>'+esc(nm[0])+'</b><span>'+esc(nm[1])+'</span></div></td>'+
+     '<td data-l="Cases ('+b.casesTested+' of '+b.casesTotal+' tested)">'+strip(b,fm)+'</td>'+
+     dimCell(b.coveragePassRate,'Coverage')+dimCell(b.conflictPassRate,'Evidence')+dimCell(b.injectionPassRate,'Injection')+dimCell(b.piiPassRate,'PII')+
+     '<td class="overall" data-l="Overall"><b style="color:'+tcol(b.overallPassRate)+'">'+pct(b.overallPassRate)+'</b><div class="tr"><i style="width:'+(b.overallPassRate*100).toFixed(1)+'%;--c:'+tcol(b.overallPassRate)+'"></i></div></td>'+
+     '<td class="n '+(b.criticalFailures?'bad':'na')+'" data-l="Critical">'+b.criticalFailures+'</td>'+
+     '<td data-l="Status"><span class="tag '+esc(b.finalStatus)+'">'+esc(ST[b.finalStatus]||b.finalStatus)+'</span>'+auto+'</td>'+
+     '<td data-l="Decision">'+dec+'</td></tr>';
+  });
+  return h+'</tbody></table><div class="legend"><span><i class="sq"></i>passed every check</span><span><i class="sq f"></i>failed a check</span><span><i class="sq c"></i>critical: possible wrong payout</span><span><i class="sq e"></i>not tested (API error)</span><span>click a red square to jump to its evidence</span></div></div>';
+}
+function findings(r){
+  var all=(r.failedCases||[]).slice().sort(function(a,b){var ca=CRIT[a.ruleViolated]?0:1,cb=CRIT[b.ruleViolated]?0:1;return ca-cb||a.batch-b.batch||(a.caseId<b.caseId?-1:1)});
+  if(!all.length)return '<div class="emptyline">No failed checks. Every scored check passed in this run.</div>';
+  var nc=all.filter(function(f){return CRIT[f.ruleViolated]}).length;
+  var shown=all.filter(function(f){return state.tab==='all'||(state.tab==='crit'?CRIT[f.ruleViolated]:String(f.batch)===state.tab)});
+  var batches=[];all.forEach(function(f){if(batches.indexOf(f.batch)<0)batches.push(f.batch)});batches.sort();
+  var tabs='<div class="tabs" role="group" aria-label="Filter findings"><button class="tab" type="button" aria-pressed="'+(state.tab==='all')+'" data-tab="all">All<b>'+all.length+'</b></button>'+
+    (nc?'<button class="tab" type="button" aria-pressed="'+(state.tab==='crit')+'" data-tab="crit">Critical<b>'+nc+'</b></button>':'')+
+    batches.map(function(b){var n=all.filter(function(f){return f.batch===b}).length;return '<button class="tab" type="button" aria-pressed="'+(state.tab===String(b))+'" data-tab="'+b+'">Batch '+b+'<b>'+n+'</b></button>'}).join('')+'</div>';
+  var idx={};all.forEach(function(f,i){idx[f.caseId+'|'+f.dimension+'|'+f.ruleViolated]=i+1});
+  var list=shown.map(function(f){
+    var c=!!CRIT[f.ruleViolated],k=f.caseId+'|'+f.dimension+'|'+f.ruleViolated;
+    return '<details class="fd" id="f-'+esc(f.caseId)+'" data-case="'+esc(f.caseId)+'"><summary><span class="fid">F-'+pad(idx[k])+'</span><span class="cid">'+esc(f.caseId)+'</span><span class="sev'+(c?' crit':'')+'">'+(c?'Critical':'Standard')+'</span>'+
+     '<span class="what"><b>'+esc(RL[f.ruleViolated]||f.ruleViolated)+'</b><span>'+esc(DL[f.dimension]||f.dimension)+' &middot; batch '+f.batch+'</span></span><span class="pm"></span></summary>'+
+     '<div class="evid"><div><h4>What the rule expected</h4><pre>'+esc(f.expectedVsActual)+'</pre></div><div><h4>What the agent said</h4><pre>'+esc(f.agentOutput)+'</pre></div></div>'+
+     '<div class="foot">rule: '+esc(f.ruleViolated)+(f.inputSnapshot?' &middot; input: '+esc(f.inputSnapshot):'')+'</div></details>'}).join('');
+  return '<div class="sheet">'+tabs+list+'</div>';
+}
+function runGrid(runs){
+  if(!runs.length)return '<div class="emptyline">No runs saved yet.</div>';
+  var rs=runs.slice().sort(function(a,b){return a.runNumber-b.runNumber});var nums=[];rs.forEach(function(r){r.batches.forEach(function(b){if(nums.indexOf(b.batch)<0)nums.push(b.batch)})});nums.sort();
+  var h='<div class="sheet" style="overflow:auto"><table class="runs"><thead><tr><th></th>'+rs.map(function(r){return '<th title="'+esc(r.model)+' &middot; '+esc(when(r.timestamp))+'"><span style="color:var(--ink);font-weight:700;font-size:13px">#'+r.runNumber+'</span><br>'+esc(r.provider)+(r.promptVersion&&r.promptVersion!=='n/a'?' '+esc(r.promptVersion):'')+'<br>'+esc(String(r.timestamp).substring(11,16))+'</th>'}).join('')+'</tr></thead><tbody>';
+  nums.forEach(function(n){h+='<tr><td class="rl">Batch '+n+'</td>'+rs.map(function(r){var b=r.batches.filter(function(x){return x.batch===n})[0];return b?'<td class="'+esc(b.autoStatus)+'" title="'+esc(ST[b.autoStatus]||b.autoStatus)+'">'+Math.round(b.overallPassRate*1000)/10+'%</td>':'<td class="none">&mdash;</td>'}).join('')+'</tr>'});
+  h+='<tr><td class="rl" style="font:600 11px var(--mono);color:var(--muted)">tested</td>'+rs.map(function(r){return '<td style="background:none;color:var(--muted);font-weight:500;font-size:12px">'+r.casesTested+'/'+r.casesTotal+(r.apiErrors?'<br><span class="bad">'+r.apiErrors+' errors</span>':'')+'</td>'}).join('')+'</tr>';
+  return h+'</tbody></table><div class="cap">Each cell is the overall pass rate of that batch in that run. Drift alerts compare only runs that used the same provider, model and prompt, so a change of prompt (v1 to v2) is a calibration, not drift.</div></div>';
+}
+function logTable(l){
+  if(!l.length)return '<div class="emptyline">No human decisions recorded yet.</div>';
+  return '<div class="sheet" style="overflow:auto"><table class="logt"><thead><tr><th>Run</th><th>Batch</th><th>Decision</th><th>Reviewer</th><th>Reason</th><th>Time (UTC)</th></tr></thead><tbody>'+
+   l.slice().reverse().map(function(x){return '<tr><td class="m">#'+x.runNumber+'</td><td class="m">'+x.batch+'</td><td><span class="tag '+(x.approved?'CERTIFIED':'BLOCKED')+'">'+(x.approved?'Approved':'Rejected')+'</span></td><td>'+esc(x.reviewer)+'</td><td>'+esc(x.reason)+'</td><td class="m">'+esc(String(x.timestamp).replace('T',' ').substring(0,19))+'</td></tr>'}).join('')+'</tbody></table></div>';
+}
+function render(){
+  var r=state.report,has=r&&r.batches&&r.batches.length,h='';
+  $('#sim').hidden=!(has&&r.provider==='mock');
+  if(has){
+    var v=verdict(r),mock=r.provider==='mock',tested=0,total=0,crit=0,err=0,w=0;
+    r.batches.forEach(function(b){tested+=b.casesTested;total+=b.casesTotal;crit+=b.criticalFailures;err+=b.errorCount;w+=b.overallPassRate*b.casesTotal});
+    var ov=total?w/total:0,pend=(r.pendingHumanReview||[]).length;
+    h+='<div class="doc"><div><div class="eyebrow">Assurance report'+(r.runNumber?' no. '+r.runNumber:'')+'</div><h1>'+esc(v.head)+'</h1>'+
+     '<div class="meta"><span>agent <b>'+esc(mock?'mock (scripted)':r.provider)+'</b></span><span>model <b>'+esc(r.model)+'</b></span>'+(mock?'':'<span>prompt <b>'+esc(r.promptVersion)+'</b></span>')+(r.timestamp?'<span>issued <b>'+esc(when(r.timestamp))+'</b></span>':'')+'</div></div>'+
+     '<div class="stamp '+v.st+'">'+esc(v.st.replace(/_/g,' '))+'<small>'+esc(v.sub)+'</small></div></div>';
+    h+='<div class="figs"><div class="fig"><div class="v">'+tested+'/'+total+'</div><div class="l">claims scored</div></div>'+
+     '<div class="fig '+(tone(ov)==='ok'?'good':(tone(ov)==='warn'?'warn':'bad'))+'"><div class="v">'+pct(ov)+'</div><div class="l">overall pass rate</div></div>'+
+     '<div class="fig '+(crit?'bad':'good')+'"><div class="v">'+crit+'</div><div class="l">critical failures</div></div>'+
+     '<div class="fig '+(err?'warn':'')+'"><div class="v">'+err+'</div><div class="l">api errors</div></div>'+
+     '<div class="fig '+(pend?'warn':'good')+'"><div class="v">'+pend+'</div><div class="l">awaiting a decision</div></div></div>';
+    if((r.driftAlerts||[]).length)h+='<div class="notice" role="alert"><h3>Drift notice: worse than the previous comparable run</h3><ul>'+r.driftAlerts.map(function(a){return '<li>'+esc(a)+'</li>'}).join('')+'</ul></div>';
+    h+='<section><h2 class="sec"><i>01</i>Register of batches</h2><p class="lede">One square per claim. A batch is certified at 90% or more with no critical failure and at least 75% of its claims scored; a person decides everything else.</p>'+ledger(r)+'</section>';
+    h+='<section><h2 class="sec"><i>02</i>Findings</h2><p class="lede">Every failed check with the evidence a reviewer needs. Critical findings, which could cause a wrong payout, come first.</p>'+findings(r)+'</section>';
+  }else{
+    h+='<div class="start"><div class="eyebrow">No report in this session</div><h2>Ready to certify an agent</h2><p>Send 36 synthetic claims through the agent and check coverage limits, evidence grounding, prompt-injection resistance and PII protection.</p><button class="btn solid" type="button" id="heroRun">Run assurance suite</button></div>';
+  }
+  h+='<section><h2 class="sec"><i>'+(has?'03':'01')+'</i>Run ledger</h2><p class="lede">Every run is saved. A fall of more than 10 points against the previous comparable run raises a drift notice.</p>'+runGrid(state.runs)+'</section>';
+  h+='<section><h2 class="sec"><i>'+(has?'04':'02')+'</i>Sign-off log</h2><p class="lede">Each approve or reject decision with who made it, why, and when.</p>'+logTable(state.log)+'</section>';
+  $('#content').innerHTML=h;
+}
+$('#content').addEventListener('click',function(ev){
+  var rv=ev.target.closest('[data-rv]');if(rv){openReview(+rv.getAttribute('data-rv'),rv.getAttribute('data-ap')==='1');return}
+  var tb=ev.target.closest('[data-tab]');if(tb){state.tab=tb.getAttribute('data-tab');render();return}
+  var sq=ev.target.closest('.sq[data-case]');if(sq){var id=sq.getAttribute('data-case');state.tab='all';render();var d=document.getElementById('f-'+id);if(d){d.open=true;d.scrollIntoView({behavior:'smooth',block:'center'});d.classList.add('flash')}return}
+  if(ev.target.id==='heroRun')$('#runBtn').click();
+});
+getJson('/api/report').catch(function(){return null}).then(function(rep){state.report=rep;return sec()}).then(render);
+})();
+</script>
+</body>
+</html>

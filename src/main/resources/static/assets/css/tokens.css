@@ -1,0 +1,121 @@
+/* VERA shared tokens: "Cream Ledger". One file for the landing page and the dashboard.
+   Warm cream paper, near-black ink, one warm orange accent used sparingly (the primary action,
+   the active tab, the thing you are pointing at). Structure is drawn with 1px hairlines in ink at
+   low opacity. No gradients, no glows, no pastel blocks.
+
+   Status never relies on the accent or on colour fills. Each status is a small label with a symbol,
+   its word, and a mark: solid ink = certified, hatched = needs review, outlined with a cross =
+   blocked, dashed = incomplete.
+
+   Type, all self-hosted under the SIL Open Font License (see ../fonts/OFL-*.txt):
+   - Display: Archivo variable at 800-900 weight, tracked tight (the heavy, tight grotesque).
+   - UI: Archivo at 400-600, normal width (the quiet grotesque).
+   - Serif: Instrument Serif Italic, for subheads and pull-quotes only.
+   - Mono: JetBrains Mono, for IDs, amounts and small-caps labels.
+   - Wordmark: Archivo at its widest (125%), weight 900, tracked open: its own treatment.
+
+   Supporting colours (sky, butter) are for section bands, tab accents and illustration only,
+   never for status. Status stays shape-coded. */
+
+@font-face {
+  font-family: "Archivo";
+  src: url("../fonts/archivo-var-latin.woff2") format("woff2");
+  font-weight: 100 900;
+  font-stretch: 62% 125%;
+  font-display: block; /* no fallback-to-webfont reflow in the display headline */
+}
+@font-face {
+  font-family: "JetBrains Mono";
+  src: url("../fonts/jetbrains-mono-latin.woff2") format("woff2");
+  font-weight: 100 800;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Instrument Serif";
+  src: url("../fonts/instrument-serif-italic.ttf") format("truetype");
+  font-weight: 400;
+  font-style: italic;
+  font-display: swap;
+}
+@font-face { font-family: "Archivo Fallback"; src: local("Arial"); size-adjust: 101%; ascent-override: 88%; descent-override: 21%; line-gap-override: 0%; }
+@font-face { font-family: "JetBrains Mono Fallback"; src: local("Consolas"); size-adjust: 110%; ascent-override: 93%; descent-override: 24%; line-gap-override: 0%; }
+
+:root {
+  color-scheme: light;
+
+  /* Paper and ink */
+  --paper: #f3eee4;          /* warm cream page */
+  --paper-2: #ebe5d8;        /* a sheet one step down, used sparingly */
+  --ink: #171512;            /* near-black, warm */
+  --ink-rgb: 23 21 18;
+  --muted: #5e584e;          /* 6.1:1 on paper */
+  --faint: #8b8478;          /* decorative only */
+  --hair: rgb(var(--ink-rgb) / .14);   /* hairline rules */
+  --hair-2: rgb(var(--ink-rgb) / .28); /* control borders, section rules */
+  --rule: var(--ink);        /* the one strong rule under a header */
+
+  /* The one accent */
+  --accent: #e2551b;         /* warm orange; ink on it 5.4:1, it on paper 3.4:1 (large text and marks only) */
+  --accent-ink: #171512;
+  --accent-soft: rgb(226 85 27 / .12);
+
+  /* Two supporting colours: bands, tab accents, illustration. Never status. */
+  --sky: #86aec4;            /* dusty sky blue */
+  --sky-tint: #dfe8e9;       /* sky on cream, for bands */
+  --butter: #f0cf6e;         /* butter yellow */
+  --butter-tint: #f4e3b0;    /* butter on cream, for bands */
+  --peach-tint: #f1d9c6;     /* orange on cream, for bands */
+  --tab: var(--accent);      /* the current dashboard tab's accent */
+
+  /* Hatching for "needs review" (drawn in ink, never coloured) */
+  --hatch: repeating-linear-gradient(135deg, var(--ink) 0 1.5px, transparent 1.5px 5px);
+
+  /* Type */
+  --display: "Archivo", "Archivo Fallback", system-ui, "Segoe UI", Arial, sans-serif;
+  --sans: "Archivo", "Archivo Fallback", system-ui, "Segoe UI", Arial, sans-serif;
+  --serif: "Instrument Serif", Georgia, "Times New Roman", serif;
+  --mono: "JetBrains Mono", "JetBrains Mono Fallback", ui-monospace, Consolas, monospace;
+  --display-weight: 860;
+  --display-track: -.045em;
+
+  /* Space: 4px unit */
+  --s1: 4px; --s2: 8px; --s3: 12px; --s4: 16px; --s5: 24px; --s6: 32px; --s7: 48px; --s8: 64px; --s9: 96px; --s10: 128px;
+  --side: clamp(16px, 3vw, 48px);
+  --max: 1440px;
+  --r: 0;
+
+  /* Motion */
+  --t-fast: 140ms;
+  --t-base: 220ms;
+  --t-slow: 380ms;
+  --ease-out: cubic-bezier(.16, 1, .3, 1);
+  --ease-in-out: cubic-bezier(.65, 0, .35, 1);
+
+  --scrim: rgb(var(--ink-rgb) / .38);
+
+  /* Legacy names still read by shared components */
+  --canvas: var(--paper);
+  --surface: var(--paper);
+  --raised: var(--paper-2);
+  --hairline: var(--hair);
+  --selection: var(--accent-soft);
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --paper: #161411;
+  --paper-2: #1e1b17;
+  --ink: #efe9dd;
+  --ink-rgb: 239 233 221;
+  --muted: #a9a194;
+  --faint: #6f685d;
+  --accent: #f06a2e;
+  --accent-ink: #161411;
+  --accent-soft: rgb(240 106 46 / .16);
+  --sky: #8fb6cc;
+  --sky-tint: #1d2427;
+  --butter: #ecc96a;
+  --butter-tint: #29241a;
+  --peach-tint: #2b1d16;
+  --scrim: rgb(0 0 0 / .6);
+}
