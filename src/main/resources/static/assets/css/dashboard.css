@@ -520,3 +520,9 @@ body[data-view="reviews"] .notice { border-top-color: var(--tab); }
 .breg .lcells { gap: 3px; }
 @media (max-width: 1439px) { .breg .b-name span { display: none; } .breg .b-name { min-width: 150px; } .breg .decide .btn { padding: 0 8px; } }
 @media (max-width: 1439px) { .breg .cell { --cs: 20px; } .breg td.dimcell, .breg td.n { padding-left: 6px; padding-right: 6px; } }
+
+/* Matrix cells: one size for every count; magnitude is fill intensity, the number stays readable */
+.fm-cell i { inset: 3px !important; opacity: calc(.28 + .72 * var(--k)); }
+.fm-cell b { font-size: 14px; color: #171512; }
+.fm-cell.zero b { font-size: 12px; color: var(--muted); font-weight: 400; }
+.fm-cell:hover i, .fm-cell.on i { opacity: 1; }

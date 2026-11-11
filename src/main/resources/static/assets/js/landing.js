@@ -53,6 +53,8 @@ if (h1 && !reduced) {
   $$('.w', h1).forEach((w) => w.setAttribute('aria-hidden', 'true'));
   h1.classList.add('split-ready');
   requestAnimationFrame(() => requestAnimationFrame(() => h1.classList.add('in')));
+  // Masks clip glyph overhang; remove them as soon as the words have risen.
+  setTimeout(() => h1.classList.remove('split-ready'), 900 + $$('.w', h1).length * 55 + 100);
 }
 requestAnimationFrame(() => $$('.reveal-up').forEach((el) => el.classList.add('in')));
 
