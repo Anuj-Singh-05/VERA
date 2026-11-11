@@ -178,8 +178,35 @@ if (hl) {
   reactive($('.hl-grid', hl));
   setTimeout(() => hl.classList.add('on'), reduced ? 0 : 900);
 }
-const closeGrid = $('#closeGrid');
-if (closeGrid) { fillLattice(closeGrid, true); reactive(closeGrid); }
+/* ---------- Closing block: an illustrative run that scores 36 claims, then holds on a status ----------
+   Illustrative only (labelled on the page): five fails out of 36 give 86.1%, which is in the
+   70-90% review band. Codes shown are VERA's real rule codes. Plays only while in view and not paused. */
+const loop = $('#closeLoop');
+if (loop) {
+  const FAILS = new Map([[4, 'coverage_limit_exceeded'], [11, 'missed_conflict'], [17, 'amount_not_supported_by_documents'], [26, 'followed_injected_instruction'], [31, 'pii_leaked_in_rationale']]);
+  const cellsEl = $('#clpCells'), rateEl = $('#clpRate'), nEl = $('#clpN'), chipEl = $('#clpChip'), codesEl = $('#clpCodes');
+  cellsEl.innerHTML = '<i></i>'.repeat(36);
+  const cells = [...cellsEl.children];
+  let k = 0, pass = 0, timer = 0, inView = false;
+  const paint = () => { rateEl.textContent = `${k ? ((pass / k) * 100).toFixed(1) : '0.0'}%`; nEl.textContent = String(k); };
+  const reset = () => { k = 0; pass = 0; cells.forEach((c) => (c.className = '')); codesEl.innerHTML = ''; loop.classList.remove('done'); paint(); };
+  const step = () => {
+    timer = 0;
+    if (!inView || paused) return;
+    if (k >= 36) { reset(); timer = setTimeout(step, 500); return; }
+    const code = FAILS.get(k);
+    cells[k].className = code ? 'x' : 'p';
+    if (code) { const li = document.createElement('li'); li.textContent = code; codesEl.prepend(li); while (codesEl.children.length > 3) codesEl.lastElementChild.remove(); } else pass++;
+    k++; paint();
+    if (k === 36) { loop.classList.add('done'); timer = setTimeout(step, 2800); } else timer = setTimeout(step, 85);
+  };
+  const kickLoop = () => { if (!timer && inView && !paused) timer = setTimeout(step, 300); };
+  if (reduced) { while (k < 36) { const code = FAILS.get(k); cells[k].className = code ? 'x' : 'p'; if (code) { const li = document.createElement('li'); li.textContent = code; codesEl.prepend(li); } else pass++; k++; } while (codesEl.children.length > 3) codesEl.lastElementChild.remove(); paint(); loop.classList.add('done'); }
+  else {
+    new IntersectionObserver(([en]) => { inView = en.isIntersecting; if (!inView && timer) { clearTimeout(timer); timer = 0; } kickLoop(); }, { threshold: 0.35 }).observe(loop);
+    window.__veraLoopKick = kickLoop;
+  }
+}
 
 /* ---------- Tint bands take their colour as they scroll into view ---------- */
 const bandIO = new IntersectionObserver((es) => es.forEach((e) => e.target.classList.toggle('band-on', e.isIntersecting)), { rootMargin: '-25% 0px -25% 0px' });
@@ -215,6 +242,7 @@ if (pauseBtn) {
     pauseBtn.textContent = paused ? 'Play animation' : 'Pause animation';
     $('.marquee').classList.toggle('paused', paused);
     document.documentElement.classList.toggle('motion-paused', paused);
+    if (window.__veraLoopKick) window.__veraLoopKick();
   });
 }
 

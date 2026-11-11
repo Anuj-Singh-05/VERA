@@ -441,3 +441,47 @@ body { font-size: 16px; }
   .js .hero h1.split:not(.split-ready) { visibility: hidden; animation: showLate 0s 2s forwards; }
 }
 @keyframes showLate { to { visibility: visible; } }
+
+/* Closing block: illustrative scoring loop */
+.close-loop { margin: 0; justify-self: end; width: min(100%, 600px); display: grid; gap: 14px; }
+.clp-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+.clp-head .label { border: 1px solid currentColor; border-radius: 999px; padding: 4px 12px; color: var(--ink); }
+.clp-rate { font: 500 14px var(--mono); color: var(--muted); }
+.clp-rate b { font: 700 34px/1 var(--mono); color: var(--ink); margin-right: 4px; letter-spacing: -.03em; }
+.clp-cells { --c: min(66px, calc((min(100vw, 1440px) - 2 * var(--side)) / 2 / 8 - 10px)); display: grid; grid-template-columns: repeat(8, var(--c)); gap: 5px; }
+.clp-cells i { position: relative; width: var(--c); height: var(--c); box-shadow: inset 0 0 0 1.5px var(--hair-2); transition: background-color 160ms var(--ease-out); }
+.clp-cells i.p { background: var(--ink); box-shadow: none; animation: clpIn 220ms var(--ease-out); }
+.clp-cells i.x { background: var(--accent); box-shadow: none; animation: clpIn 260ms var(--ease-out); }
+.clp-cells i.x::before, .clp-cells i.x::after { content: ""; position: absolute; left: 50%; top: 50%; width: 56%; height: 4px; background: #fff; transform: translate(-50%, -50%) rotate(45deg); }
+.clp-cells i.x::after { transform: translate(-50%, -50%) rotate(-45deg); }
+@keyframes clpIn { from { transform: scale(.55); } }
+.clp-foot { display: flex; align-items: center; gap: 18px; min-height: 48px; }
+.clp-chip { display: inline-flex; align-items: center; gap: 8px; padding: 8px 14px; border: 2px solid var(--ink); font: 700 13px var(--mono); letter-spacing: .12em; text-transform: uppercase; opacity: 0; transform: scale(1.4) rotate(-6deg); }
+.clp-chip::before { content: ""; width: 13px; height: 13px; background: var(--hatch); box-shadow: inset 0 0 0 1px var(--ink); }
+.close-loop.done .clp-chip { opacity: 1; transform: rotate(-3deg); transition: opacity 200ms, transform 420ms var(--ease-out); }
+.clp-codes { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; font: 500 12.5px var(--mono); color: var(--muted); }
+.clp-codes li { animation: codeIn 300ms var(--ease-out); }
+.clp-codes li:first-child { color: var(--ink); }
+@keyframes codeIn { from { opacity: 0; transform: translateY(-6px); } }
+@media (max-width: 1100px) { .close-loop { justify-self: start; } .clp-cells { --c: min(52px, calc((100vw - 2 * var(--side)) / 8 - 6px)); } }
+@media (prefers-reduced-motion: reduce) { .clp-cells i, .clp-codes li { animation: none; } .close-loop.done .clp-chip { transition: none; } }
+/* How it works: step visuals about twice the area */
+@media (min-width: 1101px) {
+  .how-in { grid-template-columns: minmax(0, 3.4fr) minmax(0, 4fr) minmax(0, 4.6fr); }
+  .hv { max-width: 470px; }
+  .hv-card { padding: 26px; }
+  .hv-id { font-size: 68px; }
+  .hv-card dl div { font-size: 17px; padding: 11px 0; }
+  .hv-card dd { font-size: 17px; }
+  .hv-reply { font-size: 18px; padding: 26px; }
+  .hv-checks li { font-size: 19px; padding: 16px 0; gap: 16px; }
+  .hv-checks i { width: 32px; height: 32px; }
+  .hv.on .hv-checks i::after { font-size: 20px; }
+  .hv-checks li b { padding-left: 48px; font-size: 15px; }
+  .hv-chips span { padding: 16px 20px; font-size: 16px; }
+  .hv-sign { padding: 28px 26px 84px; }
+  .hv-line { font-size: 17px; }
+  .hv-stamp { font-size: 20px; padding: 9px 16px; }
+  .hv-drift text { font-size: 24px; }
+  .hv-cap { font-size: 23px; }
+}
