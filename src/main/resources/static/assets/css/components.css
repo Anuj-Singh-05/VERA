@@ -20,10 +20,11 @@
 .btn:active { transform: translateY(1px); }
 .btn[disabled], .btn[aria-disabled="true"] { cursor: not-allowed; opacity: .5; transform: none; }
 .btn .ic { width: 18px; height: 18px; }
-.btn-primary { background: var(--cobalt); border-color: var(--cobalt); color: #fff; box-shadow: 0 6px 18px -6px rgb(35 64 255 / .65); }
-.btn-primary:hover { background: var(--cobalt-deep); border-color: var(--cobalt-deep); box-shadow: 0 10px 24px -8px rgb(35 64 255 / .75); }
+.btn-primary { background: var(--cobalt); border-color: var(--cobalt); color: #fff; box-shadow: 0 2px 0 0 var(--cobalt-deep); }
+.btn-primary:hover { background: var(--cobalt-deep); border-color: var(--cobalt-deep); box-shadow: 0 3px 0 0 #0a1a8a; }
+.btn-primary:active { box-shadow: 0 0 0 0 var(--cobalt-deep); }
 .btn-primary[aria-busy="true"] { opacity: 1; cursor: progress; background: var(--brand-ink-2); border-color: var(--cobalt); color: #fff; box-shadow: none; }
-.on-cobalt .btn-primary { background: #fff; border-color: #fff; color: var(--cobalt-deep); box-shadow: 0 10px 30px -10px rgb(7 13 36 / .6); }
+.on-cobalt .btn-primary { background: #fff; border-color: #fff; color: var(--cobalt-deep); box-shadow: 0 3px 0 0 #0a1a8a; }
 .btn-quiet { background: transparent; border-color: transparent; color: var(--muted); }
 .btn-quiet:hover { color: var(--ink); background: color-mix(in srgb, var(--ink) 8%, transparent); border-color: transparent; }
 .btn-icon { width: 44px; padding: 0; }
