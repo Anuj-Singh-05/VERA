@@ -5,7 +5,7 @@
 .ic { width: 16px; height: 16px; flex: none; }
 .strong { font-weight: 700; }
 .small { font-size: 13px; }
-.label { font: 500 11px/1.3 var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.label { font: 500 12px/1.3 var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
 
 /* ---------- Buttons ---------- */
 .btn {
@@ -42,7 +42,7 @@
   display: inline-flex; align-items: center; gap: 6px;
   height: 22px; padding: 0 7px 0 5px;
   border: 1px solid var(--ink); border-radius: 0; background: transparent; color: var(--ink);
-  font: 600 10.5px/1 var(--mono); letter-spacing: .07em; text-transform: uppercase; white-space: nowrap;
+  font: 600 12px/1 var(--mono); letter-spacing: .07em; text-transform: uppercase; white-space: nowrap;
 }
 .chip .ic { width: 13px; height: 13px; }
 .chip[data-s="CERTIFIED"] { background: var(--ink); color: var(--paper); }
@@ -52,19 +52,19 @@
 .chip[data-s="BLOCKED"]::before { content: "\00d7"; font: 700 15px/1 var(--sans); margin: -1px 0 0; }
 .chip[data-s="INCOMPLETE"] { border-style: dashed; }
 .chip[data-s="NO_DATA"] { border-color: var(--hair-2); color: var(--muted); }
-.chip-l { height: 26px; padding: 0 9px 0 7px; font-size: 11.5px; }
+.chip-l { height: 26px; padding: 0 9px 0 7px; font-size: 12px; }
 .chip.changed { animation: stamp 700ms var(--ease-out); }
 @keyframes stamp { 0% { transform: scale(1.25); opacity: 0; } 60% { transform: scale(.97); opacity: 1; } 100% { transform: none; } }
 
 /* Severity (not a status) */
-.sev { display: inline-block; padding: 2px 6px; border: 1px solid var(--hair-2); font: 600 10.5px/1.3 var(--mono); letter-spacing: .06em; text-transform: uppercase; color: var(--ink); white-space: nowrap; }
+.sev { display: inline-block; padding: 2px 6px; border: 1px solid var(--hair-2); font: 600 12px/1.3 var(--mono); letter-spacing: .06em; text-transform: uppercase; color: var(--ink); white-space: nowrap; }
 .sev-crit { border-color: var(--ink); background: var(--ink); color: var(--paper); }
 .sev-error { border-style: dashed; color: var(--muted); }
 
 /* ---------- Banners ---------- */
 .banner { font-size: 13px; border-bottom: 1px solid var(--hair); }
 .banner .wrap { padding-top: 7px; padding-bottom: 7px; display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: baseline; }
-.banner strong { font: 600 10.5px/1.6 var(--mono); letter-spacing: .08em; text-transform: uppercase; border: 1px solid var(--ink); padding: 0 6px; }
+.banner strong { font: 600 12px/1.6 var(--mono); letter-spacing: .08em; text-transform: uppercase; border: 1px solid var(--ink); padding: 0 6px; }
 .banner-sim { background: var(--paper-2); color: var(--ink); }
 .banner-fixture { background: var(--paper-2); color: var(--ink); }
 .banner-fixture strong { border-style: dashed; }
@@ -125,12 +125,12 @@
 .tscroll { overflow-x: auto; }
 .dtable { width: 100%; border-collapse: collapse; font-size: 13.5px; }
 .dtable th, .dtable td { text-align: left; padding: 0 10px; height: 34px; border-bottom: 1px solid var(--hair); vertical-align: middle; }
-.dtable thead th { font: 500 10.5px/1.3 var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); border-bottom: 1px solid var(--ink); white-space: nowrap; }
+.dtable thead th { font: 500 12px/1.3 var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); border-bottom: 1px solid var(--ink); white-space: nowrap; }
 .dtable tr[data-href] { cursor: pointer; }
 .dtable tr[data-href]:hover { background: rgb(var(--ink-rgb) / .04); }
 
 /* ---------- Mini status block (Runs table, landing results) ---------- */
-.mchip { display: inline-grid; place-items: center; min-width: 26px; height: 18px; padding: 0 3px; border: 1px solid var(--ink); font: 600 10px/1 var(--mono); color: var(--ink); background: transparent; }
+.mchip { display: inline-grid; place-items: center; min-width: 26px; height: 18px; padding: 0 3px; border: 1px solid var(--ink); font: 600 12px/1 var(--mono); color: var(--ink); background: transparent; }
 .mchip .ic { display: none; }
 .mchip[data-s="CERTIFIED"] { background: var(--ink); color: var(--paper); }
 .mchip[data-s="NEEDS_HUMAN_REVIEW"] { background: repeating-linear-gradient(135deg, rgb(var(--ink-rgb) / .35) 0 1px, transparent 1px 4px); }

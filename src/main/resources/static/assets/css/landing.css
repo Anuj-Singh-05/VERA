@@ -285,3 +285,5 @@ body { font-size: 16px; }
   .lnav, .progress, .intro, .marquee, .hero-pause { display: none !important; }
   .js .reveal, .js .reveal-up, .js .co, .js .hl-grid i { opacity: 1 !important; transform: none !important; }
 }
+
+.lfoot-line { font: 500 12.5px var(--mono); letter-spacing: .04em; color: var(--muted); align-self: end; }
