@@ -1,7 +1,7 @@
 // Evidence Drawer: right-hand slide-over for one failed check. Deep link: #case/<caseId>/<dimension>.
 // The agent's output is untrusted text: it is only ever set with textContent and never altered.
 import { esc, parsePairs, prettyValue } from './format.js';
-import { ruleText, dimensionLabel, batchName } from './labels.js';
+import { ruleText, ruleStatement, dimensionLabel, batchName } from './labels.js';
 import { isCritical, isApiError } from './rules.js';
 import { icon } from './icons.js';
 
@@ -89,8 +89,10 @@ export function openDrawer(f, list, ctx) {
     <div class="db">
       <section class="ev-compare" aria-label="Expected versus actual">
         <div class="ev-col">
-          <h3>Expected versus actual</h3>
-          ${pairsTable(f.expectedVsActual, 'Expected and actual values') || ''}
+          <h3>What the rule requires</h3>
+          <p class="ev-rule">${esc(ruleStatement(f.ruleViolated))}</p>
+          <h4>Values the checker compared</h4>
+          ${pairsTable(f.expectedVsActual, 'Values compared') || ''}
           <pre class="raw" data-raw="expected"></pre>
         </div>
         <div class="ev-col ev-agent">

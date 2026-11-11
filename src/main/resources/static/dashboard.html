@@ -5,14 +5,15 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>VERA dashboard: claims-agent assurance runs</title>
 <meta name="description" content="Run VERA's 36 synthetic claims through the agent-under-test, read the verdict, open the evidence for every failed check, and sign off batches.">
-<meta name="theme-color" content="#f6f5f1">
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%230b1220'/%3E%3Cpath d='M8 9l8 15 8-15' fill='none' stroke='%23f6f5f1' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+<meta name="theme-color" content="#070d24">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23070d24'/%3E%3Cg fill='%232340ff'%3E%3Crect x='6' y='6' width='6' height='6' rx='1.5'/%3E%3Crect x='13' y='6' width='6' height='6' rx='1.5'/%3E%3Crect x='20' y='6' width='6' height='6' rx='1.5'/%3E%3Crect x='6' y='13' width='6' height='6' rx='1.5'/%3E%3Crect x='13' y='13' width='6' height='6' rx='1.5'/%3E%3Crect x='6' y='20' width='6' height='6' rx='1.5'/%3E%3C/g%3E%3Crect x='20' y='13' width='6' height='6' rx='1.5' fill='%23dce3ff'/%3E%3C/svg%3E">
 <link rel="preload" href="assets/fonts/archivo-var-latin.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="assets/fonts/jetbrains-mono-latin.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="assets/css/tokens.css">
 <link rel="stylesheet" href="assets/css/base.css">
 <link rel="stylesheet" href="assets/css/components.css">
 <link rel="stylesheet" href="assets/css/dashboard.css">
+<link rel="stylesheet" href="assets/css/print.css" media="print">
 <script>
   // Apply the saved theme before first paint so the page never flashes.
   try { var t = localStorage.getItem('vera-theme'); if (t === 'dark') document.documentElement.setAttribute('data-theme', 'dark'); } catch (e) {}
@@ -21,23 +22,24 @@
 <body>
 <a class="skip" href="#main">Skip to content</a>
 
-<header class="shell">
+<header class="shell on-ink">
   <div class="shell-in">
-    <a class="wordmark" href="/" aria-label="VERA home">
+    <a class="wordmark" href="landing.html" aria-label="VERA, about the product">
+      <svg class="wm-mark" viewBox="0 0 24 24" aria-hidden="true"><g fill="currentColor"><rect x="1" y="1" width="6" height="6" rx="1.4"/><rect x="9" y="1" width="6" height="6" rx="1.4"/><rect x="17" y="1" width="6" height="6" rx="1.4"/><rect x="1" y="9" width="6" height="6" rx="1.4"/><rect x="9" y="9" width="6" height="6" rx="1.4"/><rect x="1" y="17" width="6" height="6" rx="1.4"/></g><rect x="17" y="9" width="6" height="6" rx="1.4" class="wm-hot"/></svg>
       <span class="wm-word">VERA</span>
-      <span class="wm-sub">Verified Evaluation &amp; Risk Assurance</span>
+      <span class="wm-sub">Claims-agent assurance</span>
     </a>
     <nav class="views" aria-label="Dashboard views">
       <a href="#overview" data-view="overview">Overview</a>
       <a href="#batches" data-view="batches">Batches</a>
-      <a href="#findings" data-view="findings">Findings <span class="count" data-count="findings"></span></a>
-      <a href="#runs" data-view="runs">Runs <span class="count" data-count="runs"></span></a>
-      <a href="#reviews" data-view="reviews">Reviews <span class="count" data-count="reviews"></span></a>
+      <a href="#findings" data-view="findings">Findings<span class="count" data-count="findings"></span></a>
+      <a href="#runs" data-view="runs">Runs<span class="count" data-count="runs"></span></a>
+      <a href="#reviews" data-view="reviews">Reviews<span class="count" data-count="reviews"></span></a>
     </nav>
     <div class="shell-actions">
       <span class="agent-chip" id="agentChip" hidden></span>
       <button class="btn btn-quiet btn-icon" type="button" id="themeBtn" aria-label="Switch to dark theme" title="Switch theme"></button>
-      <button class="btn btn-quiet btn-icon" type="button" id="printBtn" aria-label="Print this report" title="Print report"></button>
+      <button class="btn btn-quiet btn-icon" type="button" id="printBtn" aria-label="Print a one-page summary" title="Print a one-page summary"></button>
       <button class="btn btn-primary" type="button" id="runBtn"><span class="run-label">Run assurance suite</span></button>
     </div>
   </div>
@@ -48,18 +50,27 @@
   <div class="wrap"><strong>Simulated agent: pipeline test only.</strong> The scripted mock agent proves the pipeline works. It says nothing about a real language model.</div>
 </div>
 <div class="banner banner-fixture" id="fixtureBanner" hidden>
-  <div class="wrap"><strong>Fixture data.</strong> This page is showing a saved test file, not the running service.</div>
+  <div class="wrap"><strong>Fixture data.</strong> This page is showing a saved test file, not the running service. Reviews and runs are disabled.</div>
 </div>
 
-<main id="main" class="wrap" tabindex="-1">
-  <div id="notice" aria-live="polite"></div>
+<main id="main" tabindex="-1">
   <div id="view"></div>
 </main>
 
 <footer class="foot">
-  <div class="wrap">
-    <p>VERA is an academic prototype. The agent is simulated or a test model, every claim is synthetic, and it is not a Guidewire product. "Certified" means passing VERA's own thresholds.</p>
-    <p><a href="legacy.html">Previous dashboard</a></p>
+  <div class="wrap foot-in">
+    <p>VERA is an academic prototype. The agent under test is simulated or a test model, every claim is synthetic, and it is not a Guidewire product. "Certified" means passing VERA's own thresholds, nothing more.</p>
+    <details class="demo-notes">
+      <summary>Presenting live: what to click</summary>
+      <ol>
+        <li>Start on <b>Overview</b>. Read the sentence, then point at the case lattice: one square per claim.</li>
+        <li>Click <b>Run assurance suite</b>. With the mock agent it finishes in seconds; a live model takes 4 to 5 minutes.</li>
+        <li>Click a dark red square. The evidence drawer shows the rule, the values compared and the agent's raw words. Use <b>Next</b> to walk the findings.</li>
+        <li>Open <b>Batches</b> and <b>Approve</b> or <b>Reject</b> a waiting batch. Type your name; the chip changes and the decision appears in <b>Reviews</b>.</li>
+        <li>Open <b>Runs</b> to show the run-over-run chart and the drift alerts.</li>
+      </ol>
+    </details>
+    <p class="foot-links"><a href="landing.html">About VERA</a> · <a href="legacy.html">Previous dashboard</a></p>
   </div>
 </footer>
 

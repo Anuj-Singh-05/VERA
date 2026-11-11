@@ -58,13 +58,15 @@ export function verdictOf(r) {
   const parts = [];
   if (t.certified === t.total) {
     parts.push(`All ${w(t.total)} batches are certified${t.approved ? `, ${w(t.approved)} after a reviewer's approval` : ''}.`);
+  } else if (t.certified === 0) {
+    parts.push(`None of the ${w(t.total)} batches is certified.`);
   } else {
     parts.push(`${cap(w(t.certified))} of ${w(t.total)} batches certified${t.approved ? ` (${w(t.approved)} approved by a reviewer)` : ''}.`);
   }
   if (t.pending) {
     const why = [];
     if (t.pendingBlocked) why.push(`${w(t.pendingBlocked)} blocked`);
-    if (t.pendingReview) why.push(`${w(t.pendingReview)} below the 90% line or with a critical failure`);
+    if (t.pendingReview) why.push(`${w(t.pendingReview)} in review`);
     parts.push(`${cap(w(t.pending))} need${t.pending === 1 ? 's' : ''} a person's decision: ${why.join(', ')}.`);
   }
   if (t.rejected) parts.push(`${cap(w(t.rejected))} rejected by a reviewer.`);
