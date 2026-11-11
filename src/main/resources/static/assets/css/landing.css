@@ -485,3 +485,16 @@ body { font-size: 16px; }
   .hv-drift text { font-size: 24px; }
   .hv-cap { font-size: 23px; }
 }
+/* Headline spacing: a touch looser than before, plus pair adjustments where the heavy a and g meet.
+   Every adjacent glyph pair keeps visible paper between the shapes (pixel-scanned). */
+.hero h1 { letter-spacing: -.045em; }
+.hero h1 .nw { white-space: nowrap; }
+.hero h1 .kp { margin-right: .028em; }
+.hero h1 .kp2 { margin-right: .01em; }
+
+/* Hero ripple v2: values come from one rAF loop; no CSS transitions fighting it. The ripple is an
+   overlay whose opacity follows --rp. Labels, caption and stamp never take the pointer. */
+.hl-grid i { transition: none; }
+.hl-grid i.rip::after { content: none; }
+.hl-grid i::after { content: ""; position: absolute; inset: 0; background: var(--accent); opacity: calc(var(--rp, 0) * .6); pointer-events: none; will-change: opacity; }
+.co, .stamp-l, .hg-lattice figcaption { pointer-events: none; }
