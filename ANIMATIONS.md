@@ -65,7 +65,7 @@ has its own reduced-motion rules). On the landing page, the Pause control stops 
 | Effect | Trigger | Duration / timing | File |
 |---|---|---|---|
 | Headline word masks stay in place (equal padding and negative margin); headline hidden until split, 2s CSS fallback | Load | Measured 0px word shift in every frame | `js/landing.js`, `css/landing.css` |
-| Hero ripple only for mouse or pen inside the grid's own box, about 2 cells around the pointer, at most every 450ms; clears on leave; never on touch | Pointer move or press inside the grid | 620ms per cell, delayed by distance | `js/landing.js` (`reactive`) |
+| Hero ripple (superseded in round 6, see below) | — | — | — |
 
 ## Added in round 5
 
@@ -82,3 +82,12 @@ has its own reduced-motion rules). On the landing page, the Pause control stops 
 | Reviews: decision row opens the drawer with the decision details | Click or Enter on a row | Drawer 380ms | `js/drawer.js` (`openPanel`), `js/dashboard.js` (`decisionPanel`) |
 | Reviews: Approved / Rejected / All filter chips | Click | Instant | `js/dashboard.js` |
 | Reviews: decision count counts up | First visit to Reviews | 900ms | `js/dashboard.js` (`countUp`) |
+
+## Round 6
+
+| Effect | Trigger | Duration / timing | File |
+|---|---|---|---|
+| Hero lift: cells near the pointer darken and shrink slightly | Pointer inside the cell box (mouse or pen) | Exponential smoothing, 90ms time constant, frame-rate independent | `js/landing.js` (`reactive`) |
+| Hero ripple: soft ring about 2.2 cells from the pointer; each cell's overlay opacity follows distance and time with an ease-in-out rise and fall | Entering the cell box, every 450ms while moving inside, or a press; at most 2 ripples alive | 400ms per cell, 60ms delay per cell of distance | `js/landing.js` (`reactive`), `css/landing.css` (`.hl-grid i::after`, `--rp`) |
+| Trigger area is exactly the cell box (8 x 5 minus the empty end of row 5); edges count, 1px outside does not; labels, caption and stamp ignore the pointer | — | Geometry cached; refreshed on resize, scroll, font load, ResizeObserver and 2s after load | `js/landing.js`, `css/landing.css` |
+| Headline spacing: letter-spacing -0.045em plus pair adjustments on "ag" and "ga" | Static | — | `landing.html`, `css/landing.css` (`.kp`, `.kp2`) |

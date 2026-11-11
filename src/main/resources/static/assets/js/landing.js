@@ -137,40 +137,68 @@ function fillLattice(el, withIndex) {
   ROWS.forEach((n, r) => { for (let c = 1; c <= n; c++) { const k = `${r + 1}-${c}`; html += `<i class="${TARGETS.has(k) ? 't' : INKED.has(k) ? 'f' : ''}" style="--i:${withIndex ? i : 0}"></i>`; i++; } });
   el.innerHTML = html;
 }
-/** Cursor-follow: cells near the pointer lift (--l); a ripple spreads from the pointer on entry and click. */
+/** Hero lattice: cells near the pointer lift, and a soft ripple spreads about two cells from it.
+ *  One rAF loop driven by timestamps (frame-rate independent). The trigger area is exactly the cell
+ *  box: the 8 x 5 grid minus the empty end of the last row; touching an edge counts, 1px outside
+ *  does not. pointermove only stores the position; geometry is cached and refreshed on resize,
+ *  scroll, font load and after the headline reveal. Mouse and pen only; at most two ripples alive. */
 function reactive(grid) {
   if (!grid || reduced) return;
   const cells = [...grid.children];
-  let raf = 0, px = 0, py = 0;
-  const centres = () => cells.map((c) => { const r = c.getBoundingClientRect(); return [r.left + r.width / 2, r.top + r.height / 2, r.width]; });
-  const lift = () => {
+  const N = cells.length;
+  let box = null, dirty = true;
+  const cx = new Float32Array(N), cy = new Float32Array(N);
+  const lift = new Float32Array(N), shownL = new Float32Array(N), shownR = new Float32Array(N);
+  const measure = () => {
+    const r = grid.getBoundingClientRect();
+    const cw = (r.width - 1) / 8, ch = (r.height - 1) / 5;
+    box = { l: r.left + scrollX, t: r.top + scrollY, r: r.right + scrollX, b: r.bottom + scrollY, cw, ch, row5: r.top + scrollY + 1 + 4 * ch, col4: r.left + scrollX + 1 + 4 * cw };
+    for (let i = 0; i < N; i++) { cx[i] = box.l + 1 + ((i % 8) + 0.5) * cw; cy[i] = box.t + 1 + (Math.floor(i / 8) + 0.5) * ch; }
+    dirty = false;
+  };
+  const inside = (x, y) => !!box && x >= box.l && x <= box.r && y >= box.t && y <= box.b && (y <= box.row5 || x <= box.col4);
+  let px = -1e6, py = -1e6, isIn = false, lastSpawn = 0, raf = 0, prevT = 0;
+  const ripples = [];
+  const spawn = (now) => { ripples.push({ x: px, y: py, t0: now }); if (ripples.length > 2) ripples.shift(); lastSpawn = now; };
+  const DUR = 400, STEP = 60, REACH = 2.2;
+  const bump = (t) => (t <= 0 || t >= 1 ? 0 : 0.5 - 0.5 * Math.cos(2 * Math.PI * t)); // ease-in-out rise and fall
+  const frame = (now) => {
     raf = 0;
-    if (paused) return;
-    centres().forEach(([x, y, w], i) => { const d = Math.hypot(px - x, py - y); cells[i].style.setProperty('--l', Math.max(0, 1 - d / (w * 2.6)).toFixed(3)); });
+    if (dirty) measure();
+    const dt = prevT ? Math.min(64, now - prevT) : 16; prevT = now;
+    const nowIn = !paused && inside(px, py);
+    if (nowIn && !isIn) spawn(now);
+    else if (nowIn && now - lastSpawn > 450) spawn(now);
+    isIn = nowIn;
+    while (ripples.length && now - ripples[0].t0 > DUR + REACH * STEP + 50) ripples.shift();
+    const k = 1 - Math.exp(-dt / 90); // lift smoothing, same feel at any frame rate
+    let busy = ripples.length > 0;
+    for (let i = 0; i < N; i++) {
+      const target = nowIn ? Math.max(0, 1 - Math.hypot(px - cx[i], py - cy[i]) / (box.cw * 2.6)) : 0;
+      lift[i] += (target - lift[i]) * k;
+      if (Math.abs(target - lift[i]) > 0.003) busy = true;
+      let rp = 0;
+      for (const r of ripples) {
+        const d = Math.hypot(r.x - cx[i], r.y - cy[i]) / box.cw;
+        if (d > REACH) continue;
+        const fall = 1 - (d / REACH) * (d / REACH);
+        rp = Math.max(rp, fall * bump((now - r.t0 - d * STEP) / DUR));
+      }
+      if (Math.abs(lift[i] - shownL[i]) > 0.004) { shownL[i] = lift[i]; cells[i].style.setProperty('--l', lift[i].toFixed(3)); }
+      if (Math.abs(rp - shownR[i]) > 0.004 || (rp === 0 && shownR[i] !== 0)) { shownR[i] = rp; cells[i].style.setProperty('--rp', rp.toFixed(3)); }
+    }
+    if (busy || nowIn) raf = requestAnimationFrame(frame); else prevT = 0;
   };
-  const ripple = () => {
-    if (paused) return;
-    const near = [];
-    centres().forEach(([x, y, w], i) => {
-      const c = cells[i]; c.classList.remove('rip');
-      const d = Math.hypot(px - x, py - y) / w;
-      if (d <= 2.2) { c.style.setProperty('--rd', `${Math.round(d * 70)}ms`); near.push(c); }
-    });
-    void grid.offsetWidth;
-    near.forEach((c) => c.classList.add('rip'));
-  };
-  const inside = (e) => { const r = grid.getBoundingClientRect(); return e.clientX >= r.left && e.clientX <= r.right && e.clientY >= r.top && e.clientY <= r.bottom; };
-  const mouse = (e) => e.pointerType !== 'touch';
-  let last = 0;
-  grid.addEventListener('pointermove', (e) => {
-    if (!mouse(e) || !inside(e)) return;
-    px = e.clientX; py = e.clientY;
-    if (!raf) raf = requestAnimationFrame(lift);
-    const now = performance.now();
-    if (now - last > 450) { last = now; ripple(); }
-  });
-  grid.addEventListener('pointerdown', (e) => { if (mouse(e) && inside(e)) { px = e.clientX; py = e.clientY; ripple(); } });
-  grid.addEventListener('pointerleave', () => cells.forEach((c) => { c.style.setProperty('--l', 0); c.classList.remove('rip'); }));
+  const kick = () => { if (!raf) raf = requestAnimationFrame(frame); };
+  addEventListener('pointermove', (e) => { if (e.pointerType === 'touch') return; px = e.pageX; py = e.pageY; kick(); }, { passive: true });
+  addEventListener('pointerdown', (e) => { if (e.pointerType === 'touch') return; px = e.pageX; py = e.pageY; if (inside(px, py)) { spawn(performance.now()); kick(); } }, { passive: true });
+  document.addEventListener('pointerleave', () => { px = py = -1e6; kick(); });
+  const remeasure = () => { dirty = true; kick(); };
+  addEventListener('resize', remeasure, { passive: true });
+  addEventListener('scroll', () => { dirty = true; }, { passive: true });
+  if (document.fonts) document.fonts.ready.then(remeasure);
+  if ('ResizeObserver' in window) new ResizeObserver(remeasure).observe(grid);
+  setTimeout(remeasure, 2000); // after the headline reveal has settled
 }
 const hl = $('#heroLattice');
 if (hl) {
