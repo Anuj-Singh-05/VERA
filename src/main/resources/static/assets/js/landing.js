@@ -97,6 +97,7 @@ function updatePipe() {
   const prog = span > 0 ? Math.min(1, Math.max(0, (mid - (first.top + first.height / 2)) / span)) : 0;
   if (pipeFill) pipeFill.style.strokeDashoffset = String(pipeLen * (1 - prog));
   steps.forEach((s, i) => s.classList.toggle('on', i === active));
+  $$('.how-vis .hv').forEach((v, i) => v.classList.toggle('on', i === active));
   nodes.forEach((n, i) => { n.classList.toggle('on', i === active); n.classList.toggle('done', i < active || (i === active && prog >= 0.999)); });
 }
 
@@ -130,16 +131,49 @@ if (close) {
    marked cells are the cases named in this page's own copy, and the callouts name them. */
 const ROWS = [8, 8, 8, 8, 4];
 const TARGETS = new Set(['1-6', '2-1', '4-2', '5-4']);
+// Decorative ink cells (illustration only, not results)
+const INKED = new Set(['1-2', '1-3', '1-8', '2-4', '2-5', '2-7', '3-1', '3-3', '3-6', '3-7', '4-4', '4-5', '4-8', '5-2']);
+let paused = reduced;
 function fillLattice(el, withIndex) {
   let html = '', i = 0;
-  ROWS.forEach((n, r) => { for (let c = 1; c <= n; c++) html += `<i class="${TARGETS.has(`${r + 1}-${c}`) ? 't' : ''}" style="--i:${withIndex ? i : 0}"></i>`, i++; });
+  ROWS.forEach((n, r) => { for (let c = 1; c <= n; c++) { const k = `${r + 1}-${c}`; html += `<i class="${TARGETS.has(k) ? 't' : INKED.has(k) ? 'f' : ''}" style="--i:${withIndex ? i : 0}"></i>`; i++; } });
   el.innerHTML = html;
+}
+/** Cursor-follow: cells near the pointer lift (--l); a ripple spreads from the pointer on entry and click. */
+function reactive(grid) {
+  if (!grid || reduced) return;
+  const cells = [...grid.children];
+  let raf = 0, px = 0, py = 0;
+  const centres = () => cells.map((c) => { const r = c.getBoundingClientRect(); return [r.left + r.width / 2, r.top + r.height / 2, r.width]; });
+  const lift = () => {
+    raf = 0;
+    if (paused) return;
+    centres().forEach(([x, y, w], i) => { const d = Math.hypot(px - x, py - y); cells[i].style.setProperty('--l', Math.max(0, 1 - d / (w * 2.6)).toFixed(3)); });
+  };
+  const ripple = () => {
+    if (paused) return;
+    centres().forEach(([x, y, w], i) => { const c = cells[i]; c.style.setProperty('--rd', `${Math.round(Math.hypot(px - x, py - y) / w * 70)}ms`); c.classList.remove('rip'); });
+    void grid.offsetWidth;
+    cells.forEach((c) => c.classList.add('rip'));
+  };
+  const zone = grid.parentElement;
+  zone.addEventListener('pointermove', (e) => { px = e.clientX; py = e.clientY; if (!raf) raf = requestAnimationFrame(lift); });
+  zone.addEventListener('pointerenter', (e) => { px = e.clientX; py = e.clientY; ripple(); });
+  zone.addEventListener('pointerdown', (e) => { px = e.clientX; py = e.clientY; ripple(); });
+  zone.addEventListener('pointerleave', () => cells.forEach((c) => c.style.setProperty('--l', 0)));
 }
 const hl = $('#heroLattice');
 if (hl) {
   fillLattice($('.hl-grid', hl), true);
+  reactive($('.hl-grid', hl));
   setTimeout(() => hl.classList.add('on'), reduced ? 0 : 900);
 }
+const closeGrid = $('#closeGrid');
+if (closeGrid) { fillLattice(closeGrid, true); reactive(closeGrid); }
+
+/* ---------- Tint bands take their colour as they scroll into view ---------- */
+const bandIO = new IntersectionObserver((es) => es.forEach((e) => e.target.classList.toggle('band-on', e.isIntersecting)), { rootMargin: '-25% 0px -25% 0px' });
+$$('#checks, .how, .why, .build').forEach((el) => bandIO.observe(el));
 
 /* ---------- First-visit intro: about 1.5s, once per session, skippable ---------- */
 const intro = $('#intro');
@@ -166,10 +200,11 @@ const pauseBtn = $('#heroPause');
 if (pauseBtn) {
   if (reduced) pauseBtn.hidden = true;
   pauseBtn.addEventListener('click', () => {
-    const paused = pauseBtn.getAttribute('aria-pressed') !== 'true';
+    paused = pauseBtn.getAttribute('aria-pressed') !== 'true';
     pauseBtn.setAttribute('aria-pressed', String(paused));
     pauseBtn.textContent = paused ? 'Play animation' : 'Pause animation';
     $('.marquee').classList.toggle('paused', paused);
+    document.documentElement.classList.toggle('motion-paused', paused);
   });
 }
 

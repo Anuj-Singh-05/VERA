@@ -48,3 +48,14 @@ has its own reduced-motion rules). On the landing page, the Pause control stops 
 | Review dialog rises | Approve or Reject | 220ms | `css/components.css` (`dlgIn`) |
 | Toast slides up | After an action | 220ms | `css/components.css` |
 | Active-tab bar in the tab colour | View change | Instant | `css/dashboard.css` |
+
+## Added in round 3 (landing)
+
+| Effect | Trigger | Duration / timing | File |
+|---|---|---|---|
+| Headline masks removed after the reveal (no glyph clipping) | Reveal end | about 0.9s plus 55ms per word | `js/landing.js` |
+| Hero and closing lattices: cells near the cursor lift and darken | Pointer move (rAF-throttled); Pause stops it | 180ms | `js/landing.js` (`reactive`), `css/landing.css` |
+| Ripple spreading from the cursor | Pointer enters the lattice, or a click | 620ms per cell, delayed by distance (70ms per cell width) | `js/landing.js`, `css/landing.css` (`ripple`) |
+| How it works: the step visual swaps (claim, reply, checks, status, approval, drift) | Scroll, with the active step | 420ms fade and rise; ticks 300ms each, 250ms stagger; stamp 520ms; drift line draws in 1s | `js/landing.js` (`updatePipe`), `css/landing.css` (`.hv`) |
+| Tint bands take their colour on entering the middle of the viewport | Scroll (IntersectionObserver) | 700ms | `js/landing.js`, `css/landing.css` (`.band-on`) |
+| Pause control holds every running animation | Pause button | Instant | `js/landing.js` (`motion-paused`) |

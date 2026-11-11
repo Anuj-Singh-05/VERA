@@ -61,6 +61,7 @@
           <p class="co co-right" style="--col:4;--row:5"><b>Batch 5</b> Boundary cases</p>
         </div>
         <figcaption class="label">36 claims · 5 batches · illustrative</figcaption>
+        <span class="stamp-l" aria-hidden="true">Synthetic claims</span>
       </figure>
       <dl class="hero-facts reveal-up">
         <div><dt>Claims per run</dt><dd class="num">36</dd></div>
@@ -154,6 +155,17 @@
         <li class="step" data-step="4"><h3>Ask a person</h3><p>Anything not certified waits for a named reviewer to approve or reject it. Each decision is logged with who, why and when. "Certified" means passing VERA's own thresholds, nothing more.</p></li>
         <li class="step" data-step="5"><h3>Compare with the last comparable run</h3><p>Every run is saved. A fall of more than 10 points, or a lost certification, against the previous run with the same model and prompt raises a drift alert.</p></li>
       </ol>
+      <div class="how-vis" aria-hidden="true">
+        <p class="hv-tag">Illustrative · case C2-01</p>
+        <div class="hv" data-step="0"><div class="hv-card"><p class="label">Claim</p><p class="hv-id">C2-01</p><dl><div><dt>Policy limit</dt><dd>5,00,000</dd></div><div><dt>Documents</dt><dd>2</dd></div><div><dt>Batch</dt><dd>2 · Near the limit</dd></div></dl></div></div>
+        <div class="hv" data-step="1"><pre class="hv-reply">recommended=594000
+conflict=false
+rationale="…"</pre><p class="hv-cap">The agent's reply, as returned</p></div>
+        <div class="hv" data-step="2"><ul class="hv-checks"><li class="x"><i></i>Coverage limit<b>5,94,000 &gt; 5,00,000</b></li><li><i></i>Evidence grounding</li><li><i></i>Prompt injection</li><li><i></i>Personal data</li></ul></div>
+        <div class="hv" data-step="3"><div class="hv-chips"><span>Certified</span><span class="on">Needs review</span><span>Blocked</span><span>Incomplete</span></div><p class="hv-cap">Any critical failure caps the batch at review</p></div>
+        <div class="hv" data-step="4"><div class="hv-sign"><p class="label">Reviewer decision</p><p class="hv-line">Name ____________________</p><span class="hv-stamp">Approved</span></div></div>
+        <div class="hv" data-step="5"><svg class="hv-drift" viewBox="0 0 240 140"><path d="M10 30 H120 L130 108 H230" class="hv-dl"/><circle cx="120" cy="30" r="4"/><circle cx="130" cy="108" r="4"/><text x="140" y="80">−31.2 pts</text><text x="10" y="132" class="hv-sm">Batch 3, mock demonstration</text></svg></div>
+      </div>
     </div>
   </section>
 
@@ -217,19 +229,13 @@
   <!-- 7. Closing CTA -->
   <section class="close" id="close" aria-labelledby="closeH">
     <div class="wrap close-in">
-      <h2 id="closeH">See it <em>run.</em></h2>
-      <div class="close-side">
-        <div class="close-lattice" aria-hidden="true">
-          <div class="cl-row"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
-          <div class="cl-row"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
-          <div class="cl-row"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
-          <div class="cl-row"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
-          <div class="cl-row"><i></i><i></i><i></i><i></i></div>
-        </div>
+      <div class="close-text">
+        <h2 id="closeH">See it <em>run.</em></h2>
         <p>Start a run, open the evidence behind a marked cell, and sign off a batch.</p>
         <a class="btn btn-primary btn-l close-btn" href="dashboard.html">Open the dashboard
           <svg class="ic" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="square" aria-hidden="true"><path d="M4 10h11.5M11 5.5L15.5 10 11 14.5"/></svg></a>
       </div>
+      <div class="close-grid" aria-hidden="true"><div class="hl-grid big" id="closeGrid"></div></div>
     </div>
   </section>
 </main>
