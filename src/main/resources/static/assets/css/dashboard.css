@@ -399,6 +399,7 @@ body.drawer-open { overflow: hidden; }
   .fig, .fig:nth-child(4) { border-left: 1px solid var(--hairline); }
   .fig:nth-child(odd) { border-left: 0; }
   .fig:nth-child(n+3) { border-top: 1px solid var(--hairline); }
+  .fig:nth-child(5) { grid-column: 1 / -1; border-left: 0; }
   .fig { padding: var(--s4); }
   .drift { grid-template-columns: auto minmax(0, 1fr); }
   .drift .btn { grid-column: 2; justify-self: start; }

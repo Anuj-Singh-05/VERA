@@ -5,7 +5,7 @@ import { statusLabel, batchName, BATCHES, DIMENSIONS, dimensionLabel, ruleText }
 import { RULES, isCritical, isApiError } from './rules.js';
 import { icon, statusIcon } from './icons.js';
 import { batchCells, cellsHtml, cellSummary, legendHtml, caseHref } from './lattice.js';
-import { initDrawer, openDrawer, closeDrawer } from './drawer.js';
+import { initDrawer, openDrawer, closeDrawer, setReturnKey } from './drawer.js';
 import { verdictOf, pendingBatches, isPending, consistencyProblems } from './verdict.js';
 import { openReview } from './review.js';
 import { runsView, runOverall, previousComparable } from './runs.js';
@@ -174,14 +174,17 @@ function renderShell() {
   } else agent.hidden = true;
 
   const s = hasRun() ? summary(r) : null;
-  const setCount = (k, v, attn) => {
+  const setCount = (k, v, attn, label) => {
     const el = $(`[data-count="${k}"]`);
     el.textContent = v ? String(v) : '';
     el.classList.toggle('attn', !!attn);
+    const link = el.closest('a');
+    const name = link.firstChild.textContent.trim();
+    link.setAttribute('aria-label', v ? `${name}, ${v} ${label}` : name);
   };
-  setCount('findings', s ? s.findings : 0);
-  setCount('runs', state.runs.length);
-  setCount('reviews', s ? s.pending : 0, true);
+  setCount('findings', s ? s.findings : 0, false, 'failed checks');
+  setCount('runs', state.runs.length, false, 'saved runs');
+  setCount('reviews', s ? s.pending : 0, true, 'waiting for a decision');
   document.querySelectorAll('.views a').forEach((a) => {
     if (a.dataset.view === state.view) a.setAttribute('aria-current', 'page');
     else a.removeAttribute('aria-current');
@@ -509,7 +512,7 @@ function findings() {
         const sev = isApiError(f) ? '<span class="sev sev-error">API error</span>' : isCritical(f) ? '<span class="sev sev-crit">Critical</span>' : '<span class="sev">Standard</span>';
         return `<tr data-href="${caseHref(f)}">
           <td class="num muted">F-${pad2(index.get(`${f.caseId}/${f.dimension}`))}</td>
-          <td><a class="mono case-link" href="${caseHref(f)}">${esc(f.caseId)}</a></td>
+          <td><a class="mono case-link" href="${caseHref(f)}" data-key="${esc(`${f.caseId}/${f.dimension}`)}">${esc(f.caseId)}</a></td>
           <td class="num">${esc(f.batch)}</td>
           <td>${esc(dimensionLabel(f.dimension))}</td>
           <td>${esc(ruleText(f.ruleViolated))}</td>
@@ -574,6 +577,8 @@ function render() {
   else if (state.phase === 'unreachable') html = unreachable();
   else html = (VIEWS[state.view] || overview)(animate);
   const notice = state.phase === 'ready' ? noticeHtml() : '';
+  const ae = document.activeElement;
+  if (state.drawer && ae && ae.dataset && ae.dataset.key) setReturnKey(ae.dataset.key);
   $('#view').innerHTML = (notice ? `<div class="wrap notice-wrap">${notice}</div>` : '') + html;
   if (animate && (state.view === 'overview' || state.view === 'batches')) {
     state.animatedRun = `${r.runNumber}|${r.timestamp}`;
