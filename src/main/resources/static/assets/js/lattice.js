@@ -42,18 +42,25 @@ export function batchCells(b, failedCases) {
 const findingKey = (f) => `${f.caseId}/${f.dimension}`;
 export const caseHref = (f) => `#case/${encodeURIComponent(f.caseId)}/${encodeURIComponent(f.dimension)}`;
 
-function cellHtml(c) {
+function cellHtml(c, opts = {}) {
   if (c.state === 'passed') return '<span class="cell c-passed" title="Passed every check. The report lists failures only, so this claim\'s ID is not shown."></span>';
   if (c.state === 'unknown') return '<span class="cell c-unknown" title="Result not in the report"></span>';
   const f = c.findings[0];
   const what = c.state === 'error' ? 'not tested, the model call failed' : c.findings.map((x) => ruleText(x.ruleViolated)).join('; ');
   const label = `${c.id}, ${c.state === 'critical' ? 'critical: ' : c.state === 'failed' ? 'failed: ' : ''}${what}`;
-  return `<a class="cell c-${c.state}" href="${caseHref(f)}" data-key="${esc(findingKey(f))}" title="${esc(label)}" aria-label="${esc(label)}"></a>`;
+  const hl = opts.highlight && opts.highlight === c.id ? ' hl' : '';
+  if (opts.mini) return `<span class="cell c-${c.state}${hl}" title="${esc(label)}"></span>`;
+  return `<a class="cell c-${c.state}${hl}" href="${caseHref(f)}" data-key="${esc(findingKey(f))}" title="${esc(label)}" aria-label="${esc(label)}"></a>`;
 }
 
 /** Cells only (used in the Overview lattice and the Batches rows). */
-export function cellsHtml(model) {
-  return model.cells.map(cellHtml).join('');
+export function cellsHtml(model, opts) {
+  return model.cells.map((c) => cellHtml(c, opts)).join('');
+}
+
+/** A small, non-interactive lattice for one batch, optionally marking one case. */
+export function miniLattice(model, highlight, label) {
+  return `<span class="mini" role="img" aria-label="${esc(label || 'Batch cells')}">${cellsHtml(model, { mini: true, highlight })}</span>`;
 }
 
 export function cellSummary(b, m) {

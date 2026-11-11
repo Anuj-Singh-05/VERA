@@ -71,13 +71,13 @@ function runDetail(runs, run) {
     const pb = prev && (prev.batches || []).find((q) => q.batch === b.batch);
     return `<tr>
       <th scope="row"><span class="num">B${b.batch}</span> ${esc(batchName(b.batch))}</th>
-      <td class="num">${b.casesTested}/${b.casesTotal}</td>
-      <td class="num">${esc(pct(b.coveragePassRate))}</td><td class="num">${esc(pct(b.conflictPassRate))}</td>
-      <td class="num">${esc(pct(b.injectionPassRate))}</td><td class="num">${esc(pct(b.piiPassRate))}</td>
-      <td class="num strong">${esc(pct(b.overallPassRate))}</td>
-      <td>${pb ? `${esc(pct(pb.overallPassRate))} → ${delta(b.overallPassRate, pb.overallPassRate)}` : '<span class="muted">—</span>'}</td>
-      <td class="num">${b.criticalFailures}</td>
-      <td><span class="chip" data-s="${esc(b.autoStatus)}">${statusIcon(b.autoStatus)}<span>${esc(statusLabel(b.autoStatus))}</span></span></td></tr>`;
+      <td class="num" data-l="Scored">${b.casesTested}/${b.casesTotal}</td>
+      <td class="num" data-l="Coverage">${esc(pct(b.coveragePassRate))}</td><td class="num" data-l="Evidence">${esc(pct(b.conflictPassRate))}</td>
+      <td class="num" data-l="Injection">${esc(pct(b.injectionPassRate))}</td><td class="num" data-l="Personal data">${esc(pct(b.piiPassRate))}</td>
+      <td class="num strong" data-l="Overall">${esc(pct(b.overallPassRate))}</td>
+      <td data-l="Previous comparable">${pb ? `${esc(pct(pb.overallPassRate))} → ${delta(b.overallPassRate, pb.overallPassRate)}` : '<span class="muted">—</span>'}</td>
+      <td class="num" data-l="Critical">${b.criticalFailures}</td>
+      <td data-l="Automatic status"><span class="chip" data-s="${esc(b.autoStatus)}">${statusIcon(b.autoStatus)}<span>${esc(statusLabel(b.autoStatus))}</span></span></td></tr>`;
   }).join('');
   const alerts = run.driftAlerts || [];
   return `<section class="run-detail panel" aria-labelledby="rdH">
@@ -88,7 +88,7 @@ function runDetail(runs, run) {
     </div>
     <p class="rd-cmp">${prev ? `Compared with run #${prev.runNumber}, the previous run with the same provider, model and prompt.` : 'No earlier run used the same provider, model and prompt, so there is nothing to compare for drift.'}</p>
     ${alerts.length ? `<div class="drift-list" role="note">${icon('alert')}<div><b>${alerts.length} drift alert${alerts.length === 1 ? '' : 's'} raised by this run</b><ul>${alerts.map((a) => `<li>${esc(a)}</li>`).join('')}</ul></div></div>` : '<p class="muted">No drift alert was raised by this run.</p>'}
-    <div class="tscroll"><table class="dtable">
+    <div class="tscroll"><table class="ltable stack">
       <thead><tr><th scope="col">Batch</th><th scope="col">Scored</th><th scope="col">Coverage</th><th scope="col">Evidence</th><th scope="col">Injection</th><th scope="col">Personal data</th><th scope="col">Overall</th><th scope="col">Previous comparable</th><th scope="col">Critical</th><th scope="col">Automatic status</th></tr></thead>
       <tbody>${rows}</tbody></table></div>
     <p class="muted small">History keeps batch summaries only. Case-level evidence exists only for the run currently loaded on the server, and human decisions are kept in the review log.</p>
@@ -110,28 +110,29 @@ export function runsView(runs, openRun) {
     const prev = previousComparable(sorted, r);
     const d = prev ? delta(o, runOverall(prev)) : '<span class="muted">first of its setup</span>';
     const alerts = (r.driftAlerts || []).length;
-    return `<tr class="${openRun === r.runNumber ? 'open' : ''}" data-href="#runs/${r.runNumber}">
-      <td><a class="num strong" href="#runs/${r.runNumber}">#${r.runNumber}</a></td>
-      <td class="num">${esc(when(r.timestamp))}</td>
-      <td>${esc(r.provider)}${r.provider === 'mock' ? ' <span class="tag-sim">simulated</span>' : ''}</td>
-      <td class="mono small">${esc(r.model)}</td>
-      <td>${esc(r.promptVersion && r.promptVersion !== 'n/a' ? r.promptVersion : '—')}</td>
-      <td class="num">${r.casesTested}/${r.casesTotal}${r.apiErrors ? ` <span class="warn-t">${r.apiErrors} err</span>` : ''}</td>
-      <td class="num strong">${esc(pct(o))}</td>
-      <td>${d}</td>
-      <td><span class="mchips">${(r.batches || []).map(miniChip).join('')}</span></td>
-      <td>${alerts ? `<span class="drift-badge">${icon('alert')}${alerts}</span>` : '<span class="muted">—</span>'}</td></tr>`;
+    const isLatest = r.runNumber === latest.runNumber;
+    return `<tr class="${openRun === r.runNumber ? 'open' : ''}${isLatest ? ' latest' : ''}" data-href="#runs/${r.runNumber}">
+      <td data-l="Run"><a class="num strong" href="#runs/${r.runNumber}">#${r.runNumber}</a>${isLatest ? '<span class="latest-tag">Latest</span>' : ''}</td>
+      <td class="num" data-l="Time (UTC)">${esc(when(r.timestamp))}</td>
+      <td data-l="Agent">${esc(r.provider)}${r.provider === 'mock' ? '<span class="tag-sim">simulated</span>' : ''}</td>
+      <td class="mono small" data-l="Model">${esc(r.model)}</td>
+      <td data-l="Prompt">${esc(r.promptVersion && r.promptVersion !== 'n/a' ? r.promptVersion : '—')}</td>
+      <td class="num" data-l="Scored">${r.casesTested}/${r.casesTotal}${r.apiErrors ? ` <span class="warn-t">${r.apiErrors} err</span>` : ''}</td>
+      <td class="num strong" data-l="Overall">${esc(pct(o))}</td>
+      <td data-l="vs previous same setup">${d}</td>
+      <td class="wide" data-l="Batch lattice (status per batch)"><span class="mchips" role="img" aria-label="Batch statuses: ${esc((r.batches || []).map((b) => `B${b.batch} ${statusLabel(b.finalStatus || b.autoStatus)}`).join(', '))}">${(r.batches || []).map(miniChip).join('')}</span></td>
+      <td data-l="Drift">${alerts ? `<span class="drift-badge">${icon('alert')}${alerts}</span>` : '<span class="muted">—</span>'}</td></tr>`;
   }).join('');
   const open = openRun ? sorted.find((r) => r.runNumber === openRun) : null;
   return `<section class="sec" aria-labelledby="runsChartH">
-      <div class="sec-h"><h2 id="runsChartH">Pass rate by batch, run after run</h2><p>${sorted.length} saved run${sorted.length === 1 ? '' : 's'}; latest #${latest.runNumber}, ${esc(when(latest.timestamp))}.</p></div>
+      <div class="sec-h"><h2 id="runsChartH">Pass rate by batch, run after run</h2><p>Bands: certified 90%+, review 70–90%, blocked below 70%.</p></div>
       ${chart(sorted)}
     </section>
     ${open ? runDetail(sorted, open) : (openRun ? `<div class="notice">${icon('alert')}<div><h2>Run #${esc(openRun)} is not in the saved history.</h2></div></div>` : '')}
     <section class="sec" aria-labelledby="runsListH">
       <div class="sec-h"><h2 id="runsListH">All runs</h2><p>Select a run to see its batches and how it compares with the previous run of the same setup.</p></div>
-      <div class="tscroll"><table class="dtable runs-t">
-        <thead><tr><th scope="col">Run</th><th scope="col">Time (UTC)</th><th scope="col">Agent</th><th scope="col">Model</th><th scope="col">Prompt</th><th scope="col">Scored</th><th scope="col">Overall</th><th scope="col">vs previous same setup</th><th scope="col">Batch status</th><th scope="col">Drift</th></tr></thead>
+      <div class="tscroll"><table class="ltable runs-t stack">
+        <thead><tr><th scope="col">Run</th><th scope="col">Time (UTC)</th><th scope="col">Agent</th><th scope="col">Model</th><th scope="col">Prompt</th><th scope="col">Scored</th><th scope="col">Overall</th><th scope="col">vs previous same setup</th><th scope="col">Batches</th><th scope="col">Drift</th></tr></thead>
         <tbody>${list}</tbody></table></div>
       <p class="muted small">Drift alerts compare a run only with the previous run that used the same provider, model and prompt. Switching the prompt from v1 to v2 is calibration, not drift.</p>
     </section>`;

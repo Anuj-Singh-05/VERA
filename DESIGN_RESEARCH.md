@@ -117,6 +117,10 @@ Seen in the screenshots:
 - **Ruled ledger tables in mono** (Room & Pillar, Stellar, HoneyQuote): rules instead of cards, tabular mono numbers.
 - **Solid status blocks** (Beady's tags, Vanta's cells with icons): instead of pastel pills.
 - **Square controls** (Endcap, Phoenix).
+- **Ruled figure grid with no cards** (Stellar): the key figures are now one ruled register line.
+- **Highlighted latest row** (HoneyQuote's solid column): the latest run's row is marked in the Runs table.
+
+The resulting dashboard palette and layout ("Paper Ledger") are recorded in DESIGN_DIRECTION.md. The landing page keeps Cobalt Ledger.
 
 ## Sites reviewed (27)
 

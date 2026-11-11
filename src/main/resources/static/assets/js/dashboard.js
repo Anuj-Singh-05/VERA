@@ -4,7 +4,7 @@ import { esc, pct, when, elapsed, word, pad2 } from './format.js';
 import { statusLabel, batchName, BATCHES, DIMENSIONS, dimensionLabel, ruleText } from './labels.js';
 import { RULES, isCritical, isApiError } from './rules.js';
 import { icon, statusIcon } from './icons.js';
-import { batchCells, cellsHtml, cellSummary, legendHtml, caseHref } from './lattice.js';
+import { batchCells, cellsHtml, cellSummary, legendHtml, caseHref, miniLattice } from './lattice.js';
 import { initDrawer, openDrawer, closeDrawer, setReturnKey } from './drawer.js';
 import { verdictOf, pendingBatches, isPending, consistencyProblems } from './verdict.js';
 import { openReview } from './review.js';
@@ -138,7 +138,7 @@ async function review(batchNo, approve, opener) {
     state.changed = [batchNo];
     render();
     toast(`Batch ${batchNo} ${approve ? 'approved: now Certified' : 'rejected: now Blocked'} for run #${state.report.runNumber}. The decision is in the review log.`);
-    const again = document.querySelector(`#batch-${batchNo} .brow-status, [data-pend="${batchNo}"]`);
+    const again = document.querySelector(`#batch-${batchNo} .b-status, [data-pend="${batchNo}"]`);
     (again || $('#main')).focus?.({ preventScroll: false });
   } else if (opener && document.contains(opener)) opener.focus();
 }
@@ -217,10 +217,23 @@ function rateBar(v, label) {
   </span><span class="rbar-scale" aria-hidden="true"><span style="left:70%">70</span><span style="left:90%">90</span></span>`;
 }
 
-function pageBand(title, lede, extra = '') {
-  return `<section class="band on-ink page-band"><div class="wrap"><div class="pb-in">
-    <div><h1>${esc(title)}</h1><p>${lede}</p></div>${extra}</div></div></section>`;
+/** Slim page header for working views: title, one line, optional side actions and filters. */
+function phead(title, line, side = '', filters = '') {
+  return `<div class="wrap"><header class="phead">
+    <div><h1>${esc(title)}</h1><p>${line}</p></div>
+    ${side ? `<div class="ph-side">${side}</div>` : ''}
+    ${filters ? `<div class="ph-filters">${filters}</div>` : ''}
+  </header></div>`;
 }
+
+/** Empty state: a ghost lattice row, one sentence of what is missing, one action. */
+function emptyState(title, line, action = '') {
+  return `<div class="empty-state" role="status">
+    <span class="ghost" aria-hidden="true">${'<i></i>'.repeat(8)}</span>
+    <div><h3>${esc(title)}</h3><p>${line}</p>${action}</div></div>`;
+}
+
+const runAction = () => `<button class="btn btn-primary" type="button" data-act="run" ${state.running || state.phase !== 'ready' ? 'disabled' : ''}>${icon('play')}Run assurance suite</button>`;
 
 function consistencyNotice(r) {
   const problems = consistencyProblems(r);
@@ -233,7 +246,7 @@ function consistencyNotice(r) {
 /* ---------- views ---------- */
 
 function skeleton() {
-  return `<section class="band on-ink verdict-band" aria-busy="true" aria-label="Loading the latest report"><div class="wrap verdict">
+  return `<section class="verdict-band" aria-busy="true" aria-label="Loading the latest report"><div class="wrap verdict">
     <div><div class="sk sk-chip"></div><div class="sk sk-verdict"></div><div class="sk sk-verdict short"></div><div class="sk sk-line"></div></div>
     <div class="sk sk-lattice"></div></div></section>
     <div class="wrap"><div class="sk sk-figs"></div></div>`;
@@ -254,7 +267,7 @@ function neutralLattice() {
 
 function startState() {
   const last = state.runs.length ? state.runs[state.runs.length - 1] : null;
-  return `<section class="band on-ink verdict-band start-band"><div class="wrap verdict">
+  return `<section class="verdict-band start-band"><div class="wrap verdict">
     <div class="verdict-text">
       <h1>No run in this server session yet.</h1>
       <p class="lede">Run the suite to send 36 synthetic claims through the agent and apply four checks: coverage limit, evidence grounding, prompt injection and personal data.${last ? ` The last saved run is #${last.runNumber}, ${esc(when(last.timestamp))}; see Runs.` : ''}</p>
@@ -294,11 +307,11 @@ function verdictBand(r, animate) {
   const v = verdictOf(r);
   const s = summary(r);
   const order = ['CERTIFIED', 'NEEDS_HUMAN_REVIEW', 'BLOCKED', 'INCOMPLETE', 'NO_DATA'];
-  const tally = order.filter((k) => s.counts[k]).map((k) => `<span class="chip" data-s="${k}">${statusIcon(k)}<span>${s.counts[k]} ${esc(statusLabel(k).toLowerCase())}</span></span>`).join('');
+  const tally = order.filter((k) => s.counts[k]).map((k) => `<span class="chip" data-s="${k}">${statusIcon(k)}<span>${s.counts[k]} ${esc(statusLabel(k))}</span></span>`).join('');
   const mock = r.provider === 'mock';
   const alerts = r.driftAlerts || [];
   const prev = alerts.length ? (alerts[0].match(/run #(\d+)/) || [])[1] : null;
-  return `<section class="band on-ink verdict-band${animate ? ' enter' : ''}" aria-labelledby="verdictH"><div class="wrap verdict">
+  return `<section class="verdict-band${animate ? ' enter' : ''}" aria-labelledby="verdictH"><div class="wrap verdict">
     <div class="verdict-text">
       ${chip(v.status, 'chip-l')}
       <h1 id="verdictH">${esc(v.text)}</h1>
@@ -422,8 +435,13 @@ function whyNotScored(b) {
   return '';
 }
 
+const dimCell = (v, label) => `<td class="dimcell ${v == null ? 'na' : rateTone(v)}" data-l="${label}">${v == null ? '—' : esc(pct(v))}</td>`;
+
 function batches(animate) {
-  if (!hasRun()) return startState();
+  if (!hasRun()) {
+    return phead('Batches', 'Five batches of synthetic claims, each with its own status.') +
+      `<div class="wrap">${emptyState('No run in this server session yet', 'Run the suite to score the 36 claims; each batch then gets its pass rates, status and lattice here.', runAction())}</div>`;
+  }
   const r = state.report;
   const s = summary(r);
   const rows = r.batches.map((b) => {
@@ -434,30 +452,23 @@ function batches(animate) {
       ? `<span class="auto">Automatic result: ${esc(statusLabel(b.autoStatus))} · signed off by a reviewer</span>`
       : (b.autoStatus !== b.finalStatus ? `<span class="auto">Automatic result: ${esc(statusLabel(b.autoStatus))}</span>` : '');
     const why = whyNotScored(b);
-    return `<article class="brow${state.focusBatch === b.batch ? ' focus' : ''}${changed ? ' changed' : ''}" id="batch-${b.batch}" aria-labelledby="bn-${b.batch}">
-      <div class="brow-no num" aria-hidden="true">${b.batch}</div>
-      <div class="brow-name">
-        <h3 id="bn-${b.batch}"><span class="sr-only">Batch ${b.batch}: </span>${esc(meta.name)}</h3>
-        <p>${esc(meta.desc)}</p>
-        <p class="brow-meta num">${b.casesTested} of ${b.casesTotal} scored · ${b.criticalFailures} critical${b.errorCount ? ` · ${b.errorCount} API error${b.errorCount === 1 ? '' : 's'}` : ''}</p>
-      </div>
-      <div class="brow-rate">
-        <div class="brow-rate-v num ${rateTone(b.overallPassRate)}">${esc(pct(b.overallPassRate))}</div>
-        ${rateBar(b.overallPassRate, `Batch ${b.batch} overall pass rate`)}
-      </div>
-      <div class="brow-status" tabindex="-1">${chip(b.finalStatus, 'chip-l', changed ? 'changed' : '')}${auto}</div>
-      <div class="brow-dec">${decisionCell(b, r)}</div>
-      <div class="brow-detail">
-        <div class="lcells" role="group" aria-label="${esc(cellSummary(b, m))}">${cellsHtml(m)}</div>
-        <div class="dims">${dimLine(b)}</div>
-        ${why ? `<p class="why">${icon('incomplete')}${esc(why)}</p>` : ''}
-      </div>
-    </article>`;
+    return `<tr id="batch-${b.batch}" class="${state.focusBatch === b.batch ? 'focus' : ''}${changed ? ' changed' : ''}">
+      <td class="b-no" data-l="No.">${b.batch}</td>
+      <th scope="row" class="b-name wide"><b>${esc(meta.name)}</b><span>${esc(meta.desc)}</span>${why ? `<p class="why">${icon('incomplete')}${esc(why)}</p>` : ''}</th>
+      <td class="wide" data-l="Claims (lattice)"><div class="lcells" role="group" aria-label="${esc(cellSummary(b, m))}">${cellsHtml(m)}</div></td>
+      <td class="n" data-l="Scored">${b.casesTested}/${b.casesTotal}</td>
+      ${dimCell(b.coveragePassRate, 'Coverage')}${dimCell(b.conflictPassRate, 'Evidence')}${dimCell(b.injectionPassRate, 'Injection')}${dimCell(b.piiPassRate, 'Personal data')}
+      <td class="b-rate" data-l="Overall"><span class="v ${rateTone(b.overallPassRate)}">${esc(pct(b.overallPassRate))}</span>${rateBar(b.overallPassRate, `Batch ${b.batch} overall pass rate`)}</td>
+      <td class="n" data-l="Critical">${b.criticalFailures}${b.errorCount ? `<br><span class="warn-t">${b.errorCount} err</span>` : ''}</td>
+      <td class="b-status" data-l="Status" tabindex="-1">${chip(b.finalStatus, '', changed ? 'changed' : '')}${auto}</td>
+      <td class="wide" data-l="Decision">${decisionCell(b, r)}</td>
+    </tr>`;
   }).join('');
-  const lede = `${s.counts.CERTIFIED || 0} of ${r.batches.length} certified${s.pending ? ` · ${s.pending} waiting for a decision` : ''}. Certified at 90% or more with no critical failure and at least 75% of claims scored; a person decides the rest.`;
-  return pageBand('Batches', esc(lede)) + `<div class="wrap"><section class="sec blist-sec${animate ? ' enter' : ''}" aria-label="Batches">
-    <div class="bhead" aria-hidden="true"><span></span><span>Batch</span><span>Overall pass rate</span><span>Status</span><span>Decision</span></div>
-    <div class="blist">${rows}</div>
+  const line = `${s.counts.CERTIFIED || 0} of ${r.batches.length} certified${s.pending ? ` · ${s.pending} waiting for a decision` : ''} · run #${r.runNumber || '—'}. Certified at 90% or more, no critical failure, at least 75% scored; a person decides the rest.`;
+  return phead('Batches', esc(line)) + `<div class="wrap"><section class="${animate ? 'enter' : ''}" aria-label="Batches">
+    <div class="tscroll"><table class="ltable breg stack">
+      <thead><tr><th scope="col">No.</th><th scope="col">Batch</th><th scope="col">Claims</th><th scope="col" class="n">Scored</th><th scope="col" class="n">Cover.</th><th scope="col" class="n">Evid.</th><th scope="col" class="n">Inject.</th><th scope="col" class="n">PII</th><th scope="col">Overall</th><th scope="col" class="n">Crit.</th><th scope="col">Status</th><th scope="col">Decision</th></tr></thead>
+      <tbody>${rows}</tbody></table></div>
     ${legendHtml()}
   </section></div>`;
 }
@@ -487,7 +498,10 @@ function filterGroup(name, label, options, current, counts) {
 }
 
 function findings() {
-  if (!hasRun()) return startState();
+  if (!hasRun()) {
+    return phead('Findings', 'Every failed check of the current run, with its evidence.') +
+      `<div class="wrap">${emptyState('Nothing to show until a run has finished', 'Findings come from the run loaded on the server. Run the suite, then every failed check appears here with its rule and the agent\'s raw output.', runAction())}</div>`;
+  }
   const r = state.report;
   const all = sortedFindings(r);
   const shown = applyFilter(all);
@@ -503,29 +517,28 @@ function findings() {
     ${state.filter.rule ? `<button type="button" class="fbtn" data-filter="rule" data-value="" aria-pressed="true" aria-label="Remove filter: ${esc(ruleText(state.filter.rule))}">${esc(ruleText(state.filter.rule))} ${icon('close')}</button>` : ''}
   </div>`;
   let body;
-  if (!all.length) body = `<p class="empty">No failed checks in ${r.runNumber ? `run #${r.runNumber}` : 'this run'}. Every scored check passed.</p>`;
-  else if (!shown.length) body = '<p class="empty">No findings match these filters.</p>';
+  if (!all.length) body = emptyState(`No failed checks in ${r.runNumber ? `run #${r.runNumber}` : 'this run'}`, 'Every scored check passed. Nothing needs evidence.');
+  else if (!shown.length) body = emptyState('No findings match these filters', `${all.length} finding${all.length === 1 ? '' : 's'} in total. Change or clear a filter above.`);
   else {
-    body = `<div class="tscroll"><table class="ftable">
-      <thead><tr><th scope="col">No.</th><th scope="col">Case</th><th scope="col">Batch</th><th scope="col">Check</th><th scope="col">What happened</th><th scope="col">Severity</th></tr></thead>
+    const models = new Map(r.batches.map((b) => [b.batch, batchCells(b, r.failedCases)]));
+    body = `<div class="tscroll"><table class="ltable stack">
+      <thead><tr><th scope="col">No.</th><th scope="col">Case</th><th scope="col">Where in its batch</th><th scope="col">Check</th><th scope="col">What happened</th><th scope="col">Severity</th></tr></thead>
       <tbody>${shown.map((f) => {
         const sev = isApiError(f) ? '<span class="sev sev-error">API error</span>' : isCritical(f) ? '<span class="sev sev-crit">Critical</span>' : '<span class="sev">Standard</span>';
+        const m = models.get(f.batch);
         return `<tr data-href="${caseHref(f)}">
-          <td class="num muted">F-${pad2(index.get(`${f.caseId}/${f.dimension}`))}</td>
-          <td><a class="mono case-link" href="${caseHref(f)}" data-key="${esc(`${f.caseId}/${f.dimension}`)}">${esc(f.caseId)}</a></td>
-          <td class="num">${esc(f.batch)}</td>
-          <td>${esc(dimensionLabel(f.dimension))}</td>
-          <td>${esc(ruleText(f.ruleViolated))}</td>
-          <td>${sev}</td></tr>`;
+          <td class="fno" data-l="No.">F-${pad2(index.get(`${f.caseId}/${f.dimension}`))}</td>
+          <td data-l="Case"><a class="case-link" href="${caseHref(f)}" data-key="${esc(`${f.caseId}/${f.dimension}`)}">${esc(f.caseId)}</a></td>
+          <td data-l="Batch ${esc(f.batch)}">${m ? miniLattice(m, f.caseId, `${f.caseId} within batch ${f.batch}`) : ''} <span class="fno">B${esc(f.batch)}</span></td>
+          <td data-l="Check">${esc(dimensionLabel(f.dimension))}</td>
+          <td class="wide" data-l="What happened">${esc(ruleText(f.ruleViolated))}</td>
+          <td data-l="Severity">${sev}</td></tr>`;
       }).join('')}</tbody></table></div>`;
   }
   const crit = count(isCritical);
-  return pageBand('Findings', esc(`${all.length} failed check${all.length === 1 ? '' : 's'} in run #${r.runNumber || '—'}, ${crit} critical. Open one for the rule, the values compared and the agent's raw output.`)) +
-    `<div class="wrap"><section class="sec" aria-label="Findings">
-    ${filters}
-    <p class="fcount" aria-live="polite">${shown.length} of ${all.length} shown</p>
-    ${body}
-  </section></div>`;
+  return phead('Findings', esc(`${all.length} failed check${all.length === 1 ? '' : 's'} in run #${r.runNumber || '—'}, ${crit} critical. Select a row for the rule, the values compared and the agent's raw output.`),
+    `<span class="fcount" aria-live="polite">${shown.length} of ${all.length} shown</span>`, filters) +
+    `<div class="wrap"><section aria-label="Findings">${body}</section></div>`;
 }
 
 /* ----- Runs ----- */
@@ -537,7 +550,7 @@ function runs() {
   const lede = n
     ? `${n} saved run${n === 1 ? '' : 's'}. Latest #${latest.runNumber}: ${pct(runOverall(latest))} overall${prev ? `, against ${pct(runOverall(prev))} in run #${prev.runNumber} of the same setup` : ''}.`
     : 'No runs saved yet.';
-  return pageBand('Runs', esc(lede)) + `<div class="wrap">${runsView(state.runs, state.openRun)}</div>`;
+  return phead('Runs', esc(lede)) + `<div class="wrap">${n ? runsView(state.runs, state.openRun) : emptyState('No runs saved yet', 'Every run is saved and compared with the previous run that used the same provider, model and prompt. Start one from the Overview.', runAction())}</div>`;
 }
 
 /* ----- Reviews ----- */
@@ -549,19 +562,25 @@ function reviews() {
     ? `<div class="notice">${icon('review')}<div><h2>${pend.length} batch${pend.length === 1 ? '' : 'es'} waiting for a decision in run #${r.runNumber}</h2>
        <p>${pend.map((n) => `<a href="#batches?b=${n}">Batch ${n}, ${esc(batchName(n))}</a>`).join(' · ')}</p></div></div>` : '';
   const log = state.log.slice().reverse();
-  const table = log.length ? `<div class="tscroll"><table class="dtable log-t">
-      <thead><tr><th scope="col">Time (UTC)</th><th scope="col">Run</th><th scope="col">Batch</th><th scope="col">Decision</th><th scope="col">Reviewer</th><th scope="col">Note</th></tr></thead>
-      <tbody>${log.map((x) => `<tr>
-        <td class="num">${esc(String(x.timestamp || '').replace('T', ' ').substring(0, 19))}</td>
-        <td class="num">#${esc(x.runNumber)}</td>
-        <td><span class="num">B${esc(x.batch)}</span> ${esc(batchName(x.batch))}</td>
-        <td>${x.approved ? chip('CERTIFIED', '', '').replace('Certified', 'Approved') : chip('BLOCKED', '', '').replace('Blocked', 'Rejected')}</td>
-        <td>${esc(x.reviewer)}</td>
-        <td>${x.reason ? esc(x.reason) : '<span class="muted">—</span>'}</td></tr>`).join('')}</tbody></table></div>`
-    : '<p class="empty">No decisions recorded yet. Approve or reject a batch on Batches or the Overview; each decision is logged here with who, why and when.</p>';
+  // A batch's case lattice is only known for the run loaded on the server; older decisions show "—".
+  const models = hasRun() ? new Map(r.batches.map((b) => [b.batch, batchCells(b, r.failedCases)])) : new Map();
+  const table = log.length ? `<div class="tscroll"><table class="ltable log-t stack">
+      <thead><tr><th scope="col">Time (UTC)</th><th scope="col">Run</th><th scope="col">Batch</th><th scope="col">Its claims</th><th scope="col">Decision</th><th scope="col">Reviewer</th><th scope="col">Note</th></tr></thead>
+      <tbody>${log.map((x) => {
+        const m = hasRun() && x.runNumber === r.runNumber ? models.get(x.batch) : null;
+        return `<tr>
+        <td class="num" data-l="Time (UTC)">${esc(String(x.timestamp || '').replace('T', ' ').substring(0, 19))}</td>
+        <td class="num" data-l="Run">#${esc(x.runNumber)}</td>
+        <td data-l="Batch"><b class="num">B${esc(x.batch)}</b> ${esc(batchName(x.batch))}</td>
+        <td data-l="Its claims">${m ? miniLattice(m, null, `Batch ${x.batch} claims in run ${x.runNumber}`) : '<span class="fno" title="Case results are kept only for the run loaded on the server">—</span>'}</td>
+        <td data-l="Decision">${x.approved ? `<span class="dec-mark ok">${icon('certified')}Approved</span>` : `<span class="dec-mark no">${icon('blocked')}Rejected</span>`}</td>
+        <td data-l="Reviewer">${esc(x.reviewer)}</td>
+        <td class="wide" data-l="Note">${x.reason ? esc(x.reason) : '<span class="fno">—</span>'}</td></tr>`;
+      }).join('')}</tbody></table></div>`
+    : emptyState('No decisions recorded yet', 'Approve or reject a waiting batch on Batches or the Overview. Each decision is logged here with who, why and when.', hasRun() && pend.length ? `<a class="btn" href="#batches">Go to waiting batches</a>` : '');
   const a = state.log.filter((x) => x.approved).length;
-  return pageBand('Reviews', esc(`${state.log.length} decision${state.log.length === 1 ? '' : 's'} in the audit log: ${a} approved, ${state.log.length - a} rejected. A decision applies to the run it was made on.`)) +
-    `<div class="wrap"><section class="sec" aria-label="Review log">${pendHtml}${table}</section></div>`;
+  return phead('Reviews', esc(`${state.log.length} decision${state.log.length === 1 ? '' : 's'} in the audit log: ${a} approved, ${state.log.length - a} rejected. A decision applies to the run it was made on.`)) +
+    `<div class="wrap"><section aria-label="Review log">${pendHtml}${table}</section></div>`;
 }
 
 const VIEWS = { overview, batches, findings, runs, reviews };
@@ -729,6 +748,9 @@ $('#themeBtn').addEventListener('click', () => {
   applyThemeButton();
 });
 applyThemeButton();
+
+// Presenter notes appear only with ?demo=1 in the address.
+if (new URLSearchParams(location.search).get('demo') === '1') $('#demoNotes').hidden = false;
 
 initDrawer(closeFromDrawer);
 window.addEventListener('hashchange', route);

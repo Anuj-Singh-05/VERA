@@ -63,6 +63,47 @@ replaces that look; it does not polish it.
 4. **Status stays meaningful.** The brand is blue, and the statuses are green, amber, red and slate. Nothing in the brand can be mistaken for a pass or a fail.
 5. **The product is the picture.** The signature image is the case lattice, which is also the main dashboard visual. That links the landing page to the working app the way At-Bay and Ramp use their own UI as proof.
 
+## Dashboard direction: "Paper Ledger" (replaces Cobalt Ledger on the dashboard only; 11 Nov)
+**Why it changed:** you judged the cobalt dashboard generic: the default fintech palette, pastel pill chips,
+rounded white cards, and hero bands on working screens that push data down. Looking at the 7 references
+properly (DESIGN_RESEARCH.md, "My 7 references") showed a different pattern. Three of them (Endcap,
+Room & Pillar, Beady) use black on white or near-black with an acid-lime highlight. Room & Pillar, Stellar
+and HoneyQuote present data as ruled tables with no cards.
+
+- **Palette, light and the default:**
+  - Paper #fafaf7, sheet #fff, ink #111.
+  - Muted #55554f (7.2:1).
+  - Hairline #dcdcd4; structural rules in ink.
+  - **Highlighter lime #d7f542** (ink on it 15:1). Used only to mark what you are looking at: the active tab, a selected filter, the focus fill, a hovered row, the latest run, a highlighted case. **Never used for a status.**
+- **Status, as solid labelled blocks** (uppercase label plus glyph) instead of pastel pills:
+  - Certified #16613e with white text.
+  - Review #e8a33d with ink text.
+  - Blocked #c42b1c with white text.
+  - Incomplete #4e5166, hatched.
+  - No data dashed outline.
+  - All AA.
+- **Dark theme ("night ledger"):**
+  - Paper #0e0e0c, ink #f2f1ea, the same lime.
+  - Status blocks lightened (#4cc38a, #f0b44c, #ff6b5b, #a6a9c4) with dark text, all ≥6.9:1.
+- **Why light paper for the projector:**
+  - Projector blacks render grey, so dark UIs lose contrast in a lit room.
+  - Black ink on white gives the maximum ratio.
+  - Pastel tints vanish on projectors, which is why status uses solid blocks and hatching.
+- **Type:** the same Archivo (expanded for page titles and numerals) and JetBrains Mono, now for every ID, value and table number. Corners 0–2px. No shadows except a hard 12px offset on the dialog.
+- **Layout:**
+  - Overview keeps a verdict area, but on paper (no ink band): the sentence on the left, a ruled lattice box on the right, then the key figures as one ruled register line.
+  - Every other view has a slim page header (title, one line, filters) so data starts within about 150px.
+  - Tables are ruled ledgers that become stacked records under 1024px.
+  - The footer sits at the bottom on short pages.
+  - Presenter notes appear only with `?demo=1`.
+- **The lattice motif on every tab:**
+  - Overview and Batches: a full lattice per batch.
+  - Findings: a mini lattice per finding, with that case highlighted in lime.
+  - Runs: one status block per batch per run. History has no case-level data, so this is batch-level and labelled as such.
+  - Reviews: the batch's mini lattice when the decision belongs to the run loaded on the server, otherwise "—".
+- **Lattice cells carry a glyph** as well as colour (after Vanta's risk grid): "!" for critical, a slash for failed, "?" for unknown, hatching for not tested.
+- **How it relates to the landing page:** the same type, the same lattice motif and the same ink. The landing page keeps its cobalt (untouched).
+
 ## Rules
 - The cobalt fields carry headlines and big numbers, never long paragraphs.
 - One expanded headline voice per screen, with UI text at normal width.
