@@ -149,3 +149,14 @@ export function closeDrawer() {
 }
 
 export const drawerOpen = () => root && !root.hidden;
+
+/** Opens the drawer with ready-made content (used by the Reviews log). Closes like the evidence drawer. */
+export function openPanel(html) {
+  if (root.hidden) opener = document.activeElement;
+  root.hidden = false;
+  document.body.classList.add('drawer-open');
+  requestAnimationFrame(() => root.classList.add('open'));
+  current = null;
+  panel.innerHTML = html;
+  panel.focus();
+}

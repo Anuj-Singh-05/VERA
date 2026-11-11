@@ -5,7 +5,7 @@ import { statusLabel, batchName, BATCHES, DIMENSIONS, dimensionLabel, ruleText }
 import { RULES, isCritical, isApiError } from './rules.js';
 import { icon, statusIcon } from './icons.js';
 import { batchCells, cellsHtml, cellSummary, legendHtml, caseHref, miniLattice } from './lattice.js';
-import { initDrawer, openDrawer, closeDrawer, setReturnKey } from './drawer.js';
+import { initDrawer, openDrawer, closeDrawer, setReturnKey, openPanel } from './drawer.js';
 import { verdictOf, pendingBatches, isPending, consistencyProblems } from './verdict.js';
 import { openReview } from './review.js';
 import { runsView, runOverall, previousComparable } from './runs.js';
@@ -30,6 +30,9 @@ const state = {
   changed: [],          // batches whose status just changed (animated once)
   animatedRun: null,    // run number whose entrance animation already played
   routed: false,
+  logFilter: 'all',     // Reviews: all | approved | rejected
+  justDecided: null,    // batch whose decision was just saved (its stamp lands once)
+  reviewsCounted: false,
 };
 
 /* ---------- helpers ---------- */
@@ -136,6 +139,7 @@ async function review(batchNo, approve, opener) {
   });
   if (saved) {
     state.changed = [batchNo];
+    state.justDecided = batchNo;
     render();
     toast(`Batch ${batchNo} ${approve ? 'approved: now Certified' : 'rejected: now Blocked'} for run #${state.report.runNumber}. The decision is in the review log.`);
     const again = document.querySelector(`#batch-${batchNo} .b-status, [data-pend="${batchNo}"]`);
@@ -456,7 +460,7 @@ function batches(animate) {
       ? `<span class="auto">Automatic result: ${esc(statusLabel(b.autoStatus))} · signed off by a reviewer</span>`
       : (b.autoStatus !== b.finalStatus ? `<span class="auto">Automatic result: ${esc(statusLabel(b.autoStatus))}</span>` : '');
     const why = whyNotScored(b);
-    return `<tr id="batch-${b.batch}" class="${state.focusBatch === b.batch ? 'focus' : ''}${changed ? ' changed' : ''}">
+    return `<tr id="batch-${b.batch}" data-b="${b.batch}" data-status="${esc(b.finalStatus)}" tabindex="0" aria-expanded="false" aria-controls="bd-${b.batch}" class="${state.focusBatch === b.batch ? 'focus' : ''}${changed ? ' changed' : ''}">
       <td class="b-no" data-l="No.">${pad2(b.batch)}</td>
       <th scope="row" class="b-name wide"><b>${esc(meta.name)}</b><span>${esc(meta.desc)}</span>${why ? `<p class="why">${icon('incomplete')}${esc(why)}</p>` : ''}</th>
       <td class="wide" data-l="Claims (lattice)"><div class="lcells" role="group" aria-label="${esc(cellSummary(b, m))}">${cellsHtml(m)}</div></td>
@@ -466,10 +470,14 @@ function batches(animate) {
       <td class="n" data-l="Critical">${b.criticalFailures}${b.errorCount ? `<br><span class="warn-t">${b.errorCount} err</span>` : ''}</td>
       <td class="b-status" data-l="Status" tabindex="-1">${chip(b.finalStatus, '', changed ? 'changed' : '')}${auto}</td>
       <td class="wide" data-l="Decision">${decisionCell(b, r)}</td>
-    </tr>`;
+    </tr>${batchDetail(b, r)}`;
   }).join('');
+  const counts = (k) => r.batches.filter((b) => b.finalStatus === k).length;
+  const chipsF = `<div class="bfilter" role="group" aria-label="Show batches by status">${[['all', 'All', r.batches.length], ['CERTIFIED', 'Certified', counts('CERTIFIED')], ['NEEDS_HUMAN_REVIEW', 'Needs review', counts('NEEDS_HUMAN_REVIEW')], ['BLOCKED', 'Blocked', counts('BLOCKED')]]
+    .map(([v, t, n]) => `<button type="button" class="fbtn" data-act="bfilter" data-v="${v}" aria-pressed="${v === 'all'}">${t} <span class="num">${n}</span></button>`).join('')}</div>`;
   const line = `${s.counts.CERTIFIED || 0} of ${r.batches.length} certified${s.pending ? ` · ${s.pending} waiting for a decision` : ''} · run #${r.runNumber || '—'}. Certified at 90% or more, no critical failure, at least 75% scored; a person decides the rest.`;
   return phead('Batches', esc(line)) + equaliser(r) + `<div class="wrap"><section class="${animate ? 'enter' : ''}" aria-label="Batches">
+    ${chipsF}
     <div class="tscroll"><table class="ltable breg stack">
       <thead><tr><th scope="col">No.</th><th scope="col">Batch</th><th scope="col">Claims</th><th scope="col" class="n">Scored</th><th scope="col" class="n">Cover.</th><th scope="col" class="n">Evid.</th><th scope="col" class="n">Inject.</th><th scope="col" class="n">PII</th><th scope="col">Overall</th><th scope="col" class="n">Crit.</th><th scope="col">Status</th><th scope="col">Decision</th></tr></thead>
       <tbody>${rows}</tbody></table></div>
@@ -479,13 +487,36 @@ function batches(animate) {
 
 /** Signature visual for Batches: per batch, the four check pass rates and the overall rate as
  *  equaliser bars that rise in. A check that does not apply to a batch is a dashed stub. */
+const DIM_NAMES = { Cov: 'Coverage limit', Evi: 'Evidence grounding', Inj: 'Prompt injection', PII: 'Personal data', All: 'Overall' };
 function equaliser(r) {
   const dims = [['Cov', 'coveragePassRate'], ['Evi', 'conflictPassRate'], ['Inj', 'injectionPassRate'], ['PII', 'piiPassRate'], ['All', 'overallPassRate']];
-  const groups = r.batches.map((b, gi) => `<figure class="eq-g" aria-label="Batch ${b.batch}: ${dims.map(([k, f]) => `${k} ${b[f] == null ? 'not applicable' : pct(b[f])}`).join(', ')}">
-    <div class="eq-bars">${dims.map(([k, f], i) => `<span class="eq-b${f === 'overallPassRate' ? ' all' : ''}${b[f] == null ? ' na' : ''}" style="--h:${b[f] == null ? 6 : Math.max(3, b[f] * 100).toFixed(1)}%;--d:${gi * 5 + i}"><i>${k}</i></span>`).join('')}
-      <span class="eq-line" style="bottom:90%" aria-hidden="true"></span><span class="eq-line r" style="bottom:70%" aria-hidden="true"></span></div>
+  const crossAt = (gi, line) => {
+    // ms at which the first bar of a group passes a threshold line (eqIn: 800ms, ease-out ~ quartic)
+    let best = Infinity;
+    dims.forEach(([, f], i) => { const h = r.batches[gi][f]; if (h != null && h >= line) best = Math.min(best, gi * 5 * 35 + i * 35 + 100 + 800 * (1 - Math.pow(1 - line / h, 0.25))); });
+    return best;
+  };
+  const groups = r.batches.map((b, gi) => `<figure class="eq-g" data-b="${b.batch}" aria-label="Batch ${b.batch}: ${dims.map(([k, f]) => `${k} ${b[f] == null ? 'not applicable' : pct(b[f])}`).join(', ')}">
+    <div class="eq-bars">${dims.map(([k, f], i) => `<span class="eq-b${f === 'overallPassRate' ? ' all' : ''}${b[f] == null ? ' na' : ''}" style="--h:${b[f] == null ? 6 : Math.max(3, b[f] * 100).toFixed(1)}%;--d:${gi * 5 + i}" data-b="${b.batch}" data-k="${esc(DIM_NAMES[k])}" data-rate="${esc(b[f] == null ? 'not applicable' : pct(b[f]))}" data-sc="${b.casesTested}/${b.casesTotal}" data-cr="${b.criticalFailures}"><i>${k}</i></span>`).join('')}
+      ${[0.9, 0.7].map((L) => { const t = crossAt(gi, L); return `<span class="eq-line${L === 0.7 ? ' r' : ''}${Number.isFinite(t) ? ' hit' : ''}" style="bottom:${L * 100}%;--pd:${Number.isFinite(t) ? Math.round(t) : 0}ms" aria-hidden="true"></span>`; }).join('')}</div>
     <figcaption><b class="num">${pad2(b.batch)}</b> ${esc(batchName(b.batch))}</figcaption></figure>`).join('');
   return `<div class="wrap"><div class="eq" aria-label="Pass rate per check and batch">${groups}<p class="eq-key">Bars: coverage, evidence, injection, personal data, overall. Lines at 90% and 70%.</p></div></div>`;
+}
+
+/** Inline detail for one batch (collapsed until its row or bar is clicked): description,
+ *  per-check rates as small bars, and its failed cells as links into the evidence. */
+function batchDetail(b, r) {
+  const meta = BATCHES[b.batch] || { desc: '' };
+  const fs = (r.failedCases || []).filter((f) => f.batch === b.batch);
+  const bars = [['Coverage limit', b.coveragePassRate], ['Evidence grounding', b.conflictPassRate], ['Prompt injection', b.injectionPassRate], ['Personal data', b.piiPassRate], ['Overall', b.overallPassRate]]
+    .map(([k, v]) => `<li><span>${k}</span><span class="bd-bar${v == null ? ' na' : ''}"><i style="--w:${v == null ? 0 : (v * 100).toFixed(1)}%"></i></span><b class="num">${v == null ? '—' : esc(pct(v))}</b></li>`).join('');
+  const links = fs.length
+    ? fs.map((f) => `<a class="bd-case" href="${caseHref(f)}" data-key="${esc(`${f.caseId}/${f.dimension}`)}"><span class="cell ${isApiError(f) ? 'c-error' : isCritical(f) ? 'c-critical' : 'c-failed'}" aria-hidden="true"></span><b class="num">${esc(f.caseId)}</b> ${esc(dimensionLabel(f.dimension))}</a>`).join('')
+    : '<p class="muted">No failed checks in this batch.</p>';
+  return `<tr class="bdetail" id="bd-${b.batch}" data-for="${b.batch}" data-status="${esc(b.finalStatus)}"><td colspan="12"><div class="bd-wrap"><div class="bd-in">
+    <div><p class="bd-desc">${esc(meta.desc)}</p><ul class="bd-bars">${bars}</ul></div>
+    <div><p class="label">Failed cells (${fs.length})</p><div class="bd-cases">${links}</div>${fs.length ? `<a class="bd-all" href="#findings?batch=${b.batch}">All findings for batch ${b.batch} →</a>` : ''}</div>
+  </div></div></td></tr>`;
 }
 
 /* ----- Findings ----- */
@@ -592,29 +623,61 @@ function runs() {
 function reviews() {
   const r = state.report;
   const pend = hasRun() ? pendingBatches(r) : [];
-  const pendHtml = pend.length
-    ? `<div class="notice">${icon('review')}<div><h2>${pend.length} batch${pend.length === 1 ? '' : 'es'} waiting for a decision in run #${r.runNumber}</h2>
-       <p>${pend.map((n) => `<a href="#batches?b=${n}">Batch ${n}, ${esc(batchName(n))}</a>`).join(' · ')}</p></div></div>` : '';
-  const log = state.log.slice().reverse();
-  // A batch's case lattice is only known for the run loaded on the server; older decisions show "—".
+  const cards = pend.length ? `<section class="wait-cards" aria-label="Waiting for a decision in run #${esc(r.runNumber)}">${pend.map((n) => {
+    const b = r.batches.find((x) => x.batch === n);
+    return `<article class="wait-card" data-pend="${n}" tabindex="-1"><p class="label">Run #${esc(r.runNumber)} · waiting</p>
+      <h3><span class="num">${pad2(n)}</span> ${esc(batchName(n))}</h3>
+      <p class="wc-meta"><b class="num">${esc(pct(b && b.overallPassRate))}</b> overall · ${b ? b.criticalFailures : 0} critical · ${b ? `${b.casesTested}/${b.casesTotal}` : '—'} scored</p>
+      ${b ? chip(b.finalStatus) : ''}${decisionButtons(n)}</article>`;
+  }).join('')}</section>` : '';
+  const all = state.log.slice().reverse();
+  const log = all.filter((x) => state.logFilter === 'all' || (state.logFilter === 'approved') === !!x.approved);
   const models = hasRun() ? new Map(r.batches.map((b) => [b.batch, batchCells(b, r.failedCases)])) : new Map();
+  const a = state.log.filter((x) => x.approved).length;
+  const chipsF = `<div class="bfilter" role="group" aria-label="Show decisions">${[['all', 'All', state.log.length], ['approved', 'Approved', a], ['rejected', 'Rejected', state.log.length - a]]
+    .map(([v, t, n]) => `<button type="button" class="fbtn" data-act="logf" data-v="${v}" aria-pressed="${state.logFilter === v}">${t} <span class="num">${n}</span></button>`).join('')}</div>`;
+  const just = state.justDecided;
   const table = log.length ? `<div class="tscroll"><table class="ltable log-t stack">
       <thead><tr><th scope="col">Time (UTC)</th><th scope="col">Run</th><th scope="col">Batch</th><th scope="col">Its claims</th><th scope="col">Decision</th><th scope="col">Reviewer</th><th scope="col">Note</th></tr></thead>
-      <tbody>${log.map((x) => {
+      <tbody>${log.map((x, i) => {
         const m = hasRun() && x.runNumber === r.runNumber ? models.get(x.batch) : null;
-        return `<tr>
+        const fresh = just != null && i === 0 && x.batch === just;
+        return `<tr class="${fresh ? 'new' : ''}" data-log="${all.indexOf(x)}" tabindex="0" aria-label="Open decision for batch ${esc(x.batch)}, run ${esc(x.runNumber)}">
         <td class="num" data-l="Time (UTC)">${esc(String(x.timestamp || '').replace('T', ' ').substring(0, 19))}</td>
         <td class="num" data-l="Run">#${esc(x.runNumber)}</td>
         <td data-l="Batch"><b class="num">B${esc(x.batch)}</b> ${esc(batchName(x.batch))}</td>
         <td data-l="Its claims">${m ? miniLattice(m, null, `Batch ${x.batch} claims in run ${x.runNumber}`) : '<span class="fno" title="Case results are kept only for the run loaded on the server">—</span>'}</td>
-        <td data-l="Decision">${x.approved ? `<span class="dec-mark stamp ok">Approved</span>` : `<span class="dec-mark stamp no">Rejected</span>`}</td>
+        <td data-l="Decision">${x.approved ? '<span class="dec-mark stamp ok">Approved</span>' : '<span class="dec-mark stamp no">Rejected</span>'}</td>
         <td data-l="Reviewer">${esc(x.reviewer)}</td>
         <td class="wide" data-l="Note">${x.reason ? esc(x.reason) : '<span class="fno">—</span>'}</td></tr>`;
       }).join('')}</tbody></table></div>`
-    : emptyState('No decisions recorded yet', 'Approve or reject a waiting batch on Batches or the Overview. Each decision is logged here with who, why and when.', hasRun() && pend.length ? `<a class="btn" href="#batches">Go to waiting batches</a>` : '');
-  const a = state.log.filter((x) => x.approved).length;
-  return phead('Reviews', esc(`${state.log.length} decision${state.log.length === 1 ? '' : 's'} in the audit log: ${a} approved, ${state.log.length - a} rejected. A decision applies to the run it was made on.`)) +
-    `<div class="wrap"><section aria-label="Review log">${pendHtml}${table}</section></div>`;
+    : emptyState(state.log.length ? 'No decisions match this filter' : 'No decisions recorded yet', state.log.length ? 'Choose All to see every decision.' : 'Approve or reject a waiting batch above, on Batches or on the Overview. Each decision is logged here with who, why and when.');
+  state.justDecided = null;
+  return phead('Reviews', `<span data-count-to="${state.log.length}" data-fmt="int">${state.log.length}</span> ${esc(`decision${state.log.length === 1 ? '' : 's'} in the audit log: ${a} approved, ${state.log.length - a} rejected. A decision applies to the run it was made on.`)}`) +
+    `<div class="wrap">${cards}<section aria-label="Review log" class="sec">${chipsF}${table}</section></div>`;
+}
+
+/** Drawer content for one logged decision; only fields the log and the saved runs hold. */
+function decisionPanel(x) {
+  const run = state.runs.find((q) => q.runNumber === x.runNumber);
+  const rb = run && (run.batches || []).find((q) => q.batch === x.batch);
+  const cur = hasRun() && state.report.runNumber === x.runNumber ? state.report.batches.find((q) => q.batch === x.batch) : null;
+  const auto = (cur && cur.autoStatus) || (rb && rb.autoStatus) || null;
+  const rate = (cur && cur.overallPassRate) ?? (rb && rb.overallPassRate);
+  return `<header class="dh"><div>
+      <p class="dh-meta"><span class="mono">Run #${esc(x.runNumber)}</span> · Batch ${esc(x.batch)}, ${esc(batchName(x.batch))}</p>
+      <h2 id="drawerTitle">${x.approved ? 'Approved' : 'Rejected'} by ${esc(x.reviewer)}</h2>
+      <p class="dh-rule">${x.approved ? '<span class="dec-mark stamp ok">Approved</span>' : '<span class="dec-mark stamp no">Rejected</span>'}</p></div>
+      <button class="btn btn-quiet btn-icon" type="button" data-close aria-label="Close">${icon('close')}</button></header>
+    <div class="db"><section><h3>Decision</h3><dl class="kv">
+      <div><dt>Automatic result</dt><dd>${auto ? esc(statusLabel(auto)) : '—'}</dd></div>
+      <div><dt>Overall pass rate</dt><dd class="num">${rate == null ? '—' : esc(pct(rate))}</dd></div>
+      <div><dt>Reviewer decision</dt><dd>${x.approved ? 'Approved (now Certified)' : 'Rejected (now Blocked)'}</dd></div>
+      <div><dt>Reviewer</dt><dd>${esc(x.reviewer)}</dd></div>
+      <div><dt>Time (UTC)</dt><dd class="num">${esc(String(x.timestamp || '').replace('T', ' ').substring(0, 19))}</dd></div></dl></section>
+      <section><h3>Note</h3><p>${x.reason ? esc(x.reason) : '<span class="muted">No note given.</span>'}</p></section>
+      <section><h3>Links</h3><p><a href="#runs/${esc(x.runNumber)}">Run #${esc(x.runNumber)} in Runs →</a></p>
+      ${cur ? `<p><a href="#findings?batch=${esc(x.batch)}">Findings for batch ${esc(x.batch)} in this run →</a></p>` : '<p class="muted">Case-level findings exist only for the run loaded on the server.</p>'}</section></div>`;
 }
 
 const VIEWS = { overview, batches, findings, runs, reviews };
@@ -637,6 +700,7 @@ function render() {
     state.animatedRun = `${r.runNumber}|${r.timestamp}`;
     countUp();
   }
+  if (state.view === 'reviews' && !state.reviewsCounted && !reduced()) { state.reviewsCounted = true; countUp(); }
   document.body.classList.toggle('is-running', state.running);
   syncDrawer();
   if (state.focusBatch) {
@@ -856,13 +920,66 @@ function showPointTip(pt) {
   tip.style.left = `${x}px`; tip.style.top = `${y}px`;
   tip.style.setProperty('--ax', `${Math.max(10, b.left + b.width / 2 - x)}px`);
 }
-// Clicking a batch row marks its claims: the row's lattice cells get the highlight ring.
+// Batches: a row or an equaliser group toggles its inline detail; status chips filter and reorder.
+function toggleDetail(n, open) {
+  const tr = document.getElementById(`batch-${n}`), d = document.getElementById(`bd-${n}`);
+  if (!tr || !d) return;
+  const on = open ?? !d.classList.contains('open');
+  d.classList.toggle('open', on); tr.classList.toggle('expanded', on); tr.setAttribute('aria-expanded', String(on));
+}
+function filterBatches(v) {
+  const rows = [...document.querySelectorAll('.breg tbody tr[data-b]')];
+  const before = new Map(rows.map((r) => [r, r.getBoundingClientRect().top]));
+  const tbody = rows[0] && rows[0].parentElement;
+  if (!tbody) return;
+  const match = (r) => v === 'all' || r.dataset.status === v;
+  const byNo = (x, y) => Number(x.dataset.b) - Number(y.dataset.b);
+  [...rows.filter(match).sort(byNo), ...rows.filter((r) => !match(r)).sort(byNo)].forEach((r) => { tbody.appendChild(r); const d = document.getElementById(`bd-${r.dataset.b}`); if (d) tbody.appendChild(d); });
+  rows.forEach((r) => { const on = match(r); r.hidden = !on; const d = document.getElementById(`bd-${r.dataset.b}`); if (d) d.hidden = !on; });
+  if (reduced()) return;
+  rows.filter(match).forEach((r) => {
+    const dy = before.get(r) - r.getBoundingClientRect().top;
+    if (!dy) return;
+    r.animate([{ transform: `translateY(${dy}px)` }, { transform: 'none' }], { duration: 280, easing: 'cubic-bezier(.16,1,.3,1)' });
+  });
+}
 document.addEventListener('click', (e) => {
-  const tr = e.target.closest && e.target.closest('.breg tbody tr');
-  if (!tr || e.target.closest('a,button')) return;
-  const on = !tr.classList.contains('marked');
-  document.querySelectorAll('.breg tr.marked').forEach((r) => r.classList.remove('marked'));
-  tr.classList.toggle('marked', on);
+  if (!e.target.closest) return;
+  const bf = e.target.closest('[data-act="bfilter"], [data-act="logf"]');
+  if (bf) {
+    bf.parentElement.querySelectorAll('button').forEach((x) => x.setAttribute('aria-pressed', String(x === bf)));
+    if (bf.dataset.act === 'bfilter') filterBatches(bf.dataset.v);
+    else { state.logFilter = bf.dataset.v; render(); document.querySelector(`[data-act="logf"][data-v="${bf.dataset.v}"]`)?.focus(); }
+    return;
+  }
+  if (e.target.closest('a,button')) return;
+  const tr = e.target.closest('.breg tbody tr[data-b]');
+  if (tr) { toggleDetail(tr.dataset.b); return; }
+  const g = e.target.closest('.eq-g');
+  if (g) { toggleDetail(g.dataset.b, true); document.getElementById(`batch-${g.dataset.b}`)?.scrollIntoView({ block: 'center', behavior: reduced() ? 'auto' : 'smooth' }); return; }
+  const lr = e.target.closest('.log-t tbody tr[data-log]');
+  if (lr) { const x = state.log.slice().reverse()[Number(lr.dataset.log)]; if (x) openPanel(decisionPanel(x)); }
+});
+document.addEventListener('keydown', (e) => {
+  if (e.key !== 'Enter' && e.key !== ' ') return;
+  const tr = e.target.closest && e.target.closest('.breg tbody tr[data-b], .log-t tbody tr[data-log]');
+  if (!tr || e.target !== tr) return;
+  e.preventDefault();
+  tr.click();
+});
+// Equaliser bar hover: tooltip with rate, claims scored and critical count; lights its row.
+document.addEventListener('pointerover', (e) => {
+  const bar = e.target.closest && e.target.closest('.eq-b');
+  document.querySelectorAll('.breg tr.hot').forEach((r) => r.classList.remove('hot'));
+  if (!bar) { if (tip.dataset.kind === 'bar') hideTip(); return; }
+  document.getElementById(`batch-${bar.dataset.b}`)?.classList.add('hot');
+  tip.dataset.kind = 'bar';
+  tip.innerHTML = `<p class="ct-h"><b>Batch ${esc(bar.dataset.b)}</b><span>${esc(bar.dataset.k)}</span></p><p class="ct-rule">${esc(bar.dataset.rate)}</p><p class="ct-ev"><span>Claims scored · critical</span>${esc(bar.dataset.sc)} · ${esc(bar.dataset.cr)} critical</p>`;
+  tip.hidden = false;
+  const b = bar.getBoundingClientRect(); const w = tip.offsetWidth, h = tip.offsetHeight;
+  const x = Math.min(innerWidth - w - 8, Math.max(8, b.left + b.width / 2 - 24)); let y = b.top - h - 10;
+  tip.classList.toggle('below', y < 64); if (y < 64) y = b.bottom + 10;
+  tip.style.left = `${x}px`; tip.style.top = `${y}px`; tip.style.setProperty('--ax', `${Math.max(10, b.left + b.width / 2 - x)}px`);
 });
 
 $('#runBtn').addEventListener('click', runSuite);

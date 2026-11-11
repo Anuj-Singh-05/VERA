@@ -59,3 +59,26 @@ has its own reduced-motion rules). On the landing page, the Pause control stops 
 | How it works: the step visual swaps (claim, reply, checks, status, approval, drift) | Scroll, with the active step | 420ms fade and rise; ticks 300ms each, 250ms stagger; stamp 520ms; drift line draws in 1s | `js/landing.js` (`updatePipe`), `css/landing.css` (`.hv`) |
 | Tint bands take their colour on entering the middle of the viewport | Scroll (IntersectionObserver) | 700ms | `js/landing.js`, `css/landing.css` (`.band-on`) |
 | Pause control holds every running animation | Pause button | Instant | `js/landing.js` (`motion-paused`) |
+
+## Added in round 4 (fixes)
+
+| Effect | Trigger | Duration / timing | File |
+|---|---|---|---|
+| Headline word masks stay in place (equal padding and negative margin); headline hidden until split, 2s CSS fallback | Load | Measured 0px word shift in every frame | `js/landing.js`, `css/landing.css` |
+| Hero ripple only for mouse or pen inside the grid's own box, about 2 cells around the pointer, at most every 450ms; clears on leave; never on touch | Pointer move or press inside the grid | 620ms per cell, delayed by distance | `js/landing.js` (`reactive`) |
+
+## Added in round 5
+
+| Effect | Trigger | Duration / timing | File |
+|---|---|---|---|
+| Closing illustrative run: 36 cells score one by one, pass rate climbs, rule codes tick, ends on a Needs review chip, holds, loops | In view (35%), not paused, no reduced motion | 85ms per cell, chip lands in 420ms, holds 2.8s, then restarts | `js/landing.js`, `css/landing.css` (`.close-loop`) |
+| How it works visuals enlarged (ticks draw in, stamp thumps down, drift line draws) | Active step | Unchanged timings | `css/landing.css` |
+| Batches: equaliser bar tooltip (rate, claims scored, critical) and row highlight | Hover a bar | Instant | `js/dashboard.js` |
+| Batches: inline detail opens and closes | Click or Enter on a row; click on an equaliser group | 360ms height, bars fill in 600ms | `js/dashboard.js` (`toggleDetail`), `css/dashboard.css` (`.bd-wrap`) |
+| Batches: status filter chips reorder rows (FLIP) | Click a chip | 280ms | `js/dashboard.js` (`filterBatches`) |
+| Batches: 70% and 90% lines pulse as the first bar fills past them | Batches render | 700ms, delayed to the computed crossing time | `js/dashboard.js` (`crossAt`), `css/dashboard.css` (`linePulse`) |
+| Reviews: waiting-batch cards with a pulsing outline | While waiting | 2.2s loop | `css/dashboard.css` (`waitPulse`) |
+| Reviews: a new decision's stamp lands (only the new one) | After Approve or Reject | 520ms stamp, 1.6s row highlight | `js/dashboard.js` (`justDecided`), `css/dashboard.css` |
+| Reviews: decision row opens the drawer with the decision details | Click or Enter on a row | Drawer 380ms | `js/drawer.js` (`openPanel`), `js/dashboard.js` (`decisionPanel`) |
+| Reviews: Approved / Rejected / All filter chips | Click | Instant | `js/dashboard.js` |
+| Reviews: decision count counts up | First visit to Reviews | 900ms | `js/dashboard.js` (`countUp`) |
