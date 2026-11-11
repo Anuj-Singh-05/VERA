@@ -534,3 +534,74 @@ body[data-view="reviews"] .notice { border-top-color: var(--tab); }
 .fm-cell.zero { border: 0; }
 .fm-cell.zero b { font-size: 12px; opacity: .5; }
 .fm-cell.zero b::before { content: "\00b7 "; }
+
+/* ======================================================================
+   Round 5: Batches detail and filters, Reviews cards and drawer
+   ====================================================================== */
+/* Status filter chips (Batches, Reviews) */
+.bfilter { display: flex; flex-wrap: wrap; gap: 6px; margin: 20px 0 12px; }
+.bfilter .fbtn { border: 1px solid var(--hair-2); border-radius: 999px; padding: 0 14px; height: 32px; font-size: 13.5px; }
+.bfilter .fbtn[aria-pressed="true"] { background: var(--tab); border-color: var(--tab); color: #171512; }
+.bfilter .fbtn[aria-pressed="true"] .num { color: #171512; }
+
+/* Batch rows: clickable, hover lit by the equaliser, expanded state */
+.breg tbody tr[data-b] { cursor: pointer; }
+.breg tbody tr[data-b]:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.breg tr.hot td, .breg tr.hot th { background: color-mix(in srgb, var(--tab) 22%, transparent); }
+.breg tr.expanded td, .breg tr.expanded th { border-bottom-color: transparent; background: color-mix(in srgb, var(--tab) 12%, transparent); }
+.breg tr.expanded .b-no { color: var(--ink); }
+
+/* Inline detail: collapsed to zero height, opens smoothly */
+.breg tr.bdetail td { height: auto; padding: 0 !important; border-bottom: 0; }
+.breg tr.bdetail.open td { border-bottom: 1px solid var(--hair); }
+.bd-wrap { display: grid; grid-template-rows: 0fr; transition: grid-template-rows 360ms var(--ease-out); }
+.bdetail.open .bd-wrap { grid-template-rows: 1fr; }
+.bd-in { min-height: 0; overflow: hidden; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 32px; padding: 0 12px 0 42px; background: color-mix(in srgb, var(--tab) 12%, transparent); }
+.bdetail.open .bd-in { padding-top: 18px; padding-bottom: 22px; }
+.bd-desc { font: italic 400 19px/1.35 var(--serif); margin-bottom: 12px; }
+.bd-bars { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.bd-bars li { display: grid; grid-template-columns: 150px minmax(0, 1fr) 64px; gap: 12px; align-items: center; font-size: 13.5px; }
+.bd-bar { position: relative; height: 10px; box-shadow: inset 0 0 0 1px var(--hair-2); }
+.bd-bar i { position: absolute; inset: 0 auto 0 0; width: var(--w); background: var(--tab); transition: width 600ms var(--ease-out) 120ms; }
+.bdetail:not(.open) .bd-bar i { width: 0; }
+.bd-bar.na { box-shadow: inset 0 0 0 1px var(--hair-2); border: 1px dashed var(--hair-2); }
+.bd-bars b { text-align: right; font-size: 13px; }
+.bd-cases { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0 12px; }
+.bd-case { display: inline-flex; align-items: center; gap: 8px; padding: 5px 10px 5px 6px; border: 1px solid var(--hair-2); text-decoration: none; font-size: 13px; }
+.bd-case:hover { border-color: var(--ink); }
+.bd-case .cell { --cs: 16px; }
+.bd-all { font-size: 13.5px; }
+
+/* Threshold lines pulse once as the first bar fills past them */
+.eq-line.hit { animation: linePulse 700ms var(--ease-out) both; animation-delay: var(--pd); }
+@keyframes linePulse { 0% { opacity: .5; } 35% { opacity: 1; border-top-width: 3px; border-top-color: var(--accent); } 100% { opacity: .5; } }
+.eq-line.r.hit { animation-name: linePulseR; }
+@keyframes linePulseR { 0% { opacity: .3; } 35% { opacity: 1; border-top-width: 3px; border-top-color: var(--accent); } 100% { opacity: .3; } }
+.eq-g { cursor: pointer; }
+.eq-b:hover { filter: none; outline: 2px solid var(--ink); outline-offset: 1px; }
+
+/* Reviews: waiting batches as cards with a pulsing outline */
+.wait-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; margin-top: 28px; }
+.wait-card { position: relative; display: grid; gap: 10px; align-content: start; padding: 18px; border: 1px solid var(--ink); background: color-mix(in srgb, var(--tab) 10%, var(--paper)); }
+.wait-card::after { content: ""; position: absolute; inset: -1px; border: 2px solid var(--tab); animation: waitPulse 2.2s ease-in-out infinite; pointer-events: none; }
+@keyframes waitPulse { 0%, 100% { opacity: .15; inset: -1px; } 50% { opacity: 1; inset: -5px; } }
+.wait-card h3 { font: var(--display-weight) 24px/1.05 var(--display); letter-spacing: -.03em; }
+.wait-card h3 .num { color: var(--muted); font: 500 14px var(--mono); margin-right: 4px; }
+.wait-card .wc-meta { font-size: 13.5px; color: var(--muted); }
+.wait-card .wc-meta b { color: var(--ink); }
+.wait-card .chip { justify-self: start; }
+.wait-card .decide { justify-self: start; margin-top: 4px; }
+
+/* Decision rows open the drawer; only a new decision's stamp lands */
+.log-t tbody tr[data-log] { cursor: pointer; }
+.log-t tbody tr[data-log]:hover td { background: color-mix(in srgb, var(--tab) 14%, transparent); }
+.log-t tbody tr[data-log]:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.log-t .stamp { animation: none; }
+.log-t tr.new .stamp { animation: stampIn 520ms var(--ease-out) both; }
+.log-t tr.new td { animation: rowHl 1.6s var(--ease-out); }
+.drawer .stamp { box-shadow: inset 0 0 0 2px var(--paper), inset 0 0 0 3px currentColor; }
+
+@media (max-width: 1023px) { .bd-in { grid-template-columns: 1fr; padding-left: 0; } .bd-bars li { grid-template-columns: 110px minmax(0, 1fr) 56px; } }
+@media (prefers-reduced-motion: reduce) { .wait-card::after, .eq-line.hit, .log-t tr.new .stamp { animation: none; } .bd-wrap, .bd-bar i { transition: none; } }
+.breg .b-status .auto { white-space: normal; max-width: 190px; } .bd-cases { min-width: 0; }
+.signed { white-space: normal; max-width: 170px; align-items: flex-start; } .breg td[data-l="Decision"] { min-width: 150px; }
