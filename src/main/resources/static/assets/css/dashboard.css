@@ -526,3 +526,11 @@ body[data-view="reviews"] .notice { border-top-color: var(--tab); }
 .fm-cell b { font-size: 14px; color: #171512; }
 .fm-cell.zero b { font-size: 12px; color: var(--muted); font-weight: 400; }
 .fm-cell:hover i, .fm-cell.on i { opacity: 1; }
+
+/* Matrix: every non-zero cell the same strong butter fill and ink number; a thin bar shows the count */
+.fm-cell[data-dim] { background: #f0cf6e; border-color: #171512; }
+.fm-cell[data-dim] i { inset: auto 6px 5px 6px !important; height: 3px; width: auto; right: auto; width: calc((100% - 12px) * var(--k)); background: #171512; opacity: 1 !important; }
+.fm-cell[data-dim] b { color: #171512; font-size: 15px; margin-top: -4px; }
+.fm-cell.zero { border: 0; }
+.fm-cell.zero b { font-size: 12px; opacity: .5; }
+.fm-cell.zero b::before { content: "\00b7 "; }

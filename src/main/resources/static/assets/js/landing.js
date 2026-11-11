@@ -53,8 +53,6 @@ if (h1 && !reduced) {
   $$('.w', h1).forEach((w) => w.setAttribute('aria-hidden', 'true'));
   h1.classList.add('split-ready');
   requestAnimationFrame(() => requestAnimationFrame(() => h1.classList.add('in')));
-  // Masks clip glyph overhang; remove them as soon as the words have risen.
-  setTimeout(() => h1.classList.remove('split-ready'), 900 + $$('.w', h1).length * 55 + 100);
 }
 requestAnimationFrame(() => $$('.reveal-up').forEach((el) => el.classList.add('in')));
 
@@ -152,15 +150,27 @@ function reactive(grid) {
   };
   const ripple = () => {
     if (paused) return;
-    centres().forEach(([x, y, w], i) => { const c = cells[i]; c.style.setProperty('--rd', `${Math.round(Math.hypot(px - x, py - y) / w * 70)}ms`); c.classList.remove('rip'); });
+    const near = [];
+    centres().forEach(([x, y, w], i) => {
+      const c = cells[i]; c.classList.remove('rip');
+      const d = Math.hypot(px - x, py - y) / w;
+      if (d <= 2.2) { c.style.setProperty('--rd', `${Math.round(d * 70)}ms`); near.push(c); }
+    });
     void grid.offsetWidth;
-    cells.forEach((c) => c.classList.add('rip'));
+    near.forEach((c) => c.classList.add('rip'));
   };
-  const zone = grid.parentElement;
-  zone.addEventListener('pointermove', (e) => { px = e.clientX; py = e.clientY; if (!raf) raf = requestAnimationFrame(lift); });
-  zone.addEventListener('pointerenter', (e) => { px = e.clientX; py = e.clientY; ripple(); });
-  zone.addEventListener('pointerdown', (e) => { px = e.clientX; py = e.clientY; ripple(); });
-  zone.addEventListener('pointerleave', () => cells.forEach((c) => c.style.setProperty('--l', 0)));
+  const inside = (e) => { const r = grid.getBoundingClientRect(); return e.clientX >= r.left && e.clientX <= r.right && e.clientY >= r.top && e.clientY <= r.bottom; };
+  const mouse = (e) => e.pointerType !== 'touch';
+  let last = 0;
+  grid.addEventListener('pointermove', (e) => {
+    if (!mouse(e) || !inside(e)) return;
+    px = e.clientX; py = e.clientY;
+    if (!raf) raf = requestAnimationFrame(lift);
+    const now = performance.now();
+    if (now - last > 450) { last = now; ripple(); }
+  });
+  grid.addEventListener('pointerdown', (e) => { if (mouse(e) && inside(e)) { px = e.clientX; py = e.clientY; ripple(); } });
+  grid.addEventListener('pointerleave', () => cells.forEach((c) => { c.style.setProperty('--l', 0); c.classList.remove('rip'); }));
 }
 const hl = $('#heroLattice');
 if (hl) {
