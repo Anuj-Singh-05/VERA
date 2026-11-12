@@ -16,7 +16,7 @@ front-end build step.
 
 ## Run
 
-Mock agent (no key, no network), then open http://localhost:8080:
+Mock agent (no key, no network), then open http://localhost:8080/landing.html (the dashboard is at /dashboard.html):
 
     mvn spring-boot:run
 
